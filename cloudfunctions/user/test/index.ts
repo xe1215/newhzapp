@@ -1,5 +1,7 @@
 import type { Lipstick, Preferences, Recommendation, TryOnTest } from "../../../shared/types/test.js";
 import type { Report } from "../../../shared/types/report.js";
+import type { ProviderRun } from "../../../shared/types/provider-run.js";
+import type { TryOnImageService } from "../../../image-service/generateTryOn.js";
 import { ERROR_CODES } from "../../../shared/constants/index.js";
 
 export interface UploadSelfieEvent {
@@ -23,6 +25,11 @@ export interface SubmitPreferencesEvent {
   preferences: Preferences;
 }
 
+export interface GeneratePreviewEvent {
+  action: "generatePreview";
+  testId: string;
+}
+
 export interface StorageClient {
   upload(options: {
     cloudPath: string;
@@ -38,6 +45,9 @@ export interface TestDatabase {
   listActiveLipsticks?(): Promise<Lipstick[]>;
   updateTryOnTest?(testId: string, patch: Partial<TryOnTest>): Promise<void>;
   addReport?(report: Report): Promise<{ id: string }>;
+  getReport?(reportId: string): Promise<Report | null>;
+  updateReport?(reportId: string, patch: Partial<Report>): Promise<void>;
+  addProviderRun?(run: ProviderRun): Promise<{ id: string }>;
 }
 
 export interface TestFunctionContext {
@@ -46,6 +56,7 @@ export interface TestFunctionContext {
   now?: string;
   storage: StorageClient;
   database: TestDatabase;
+  imageService?: TryOnImageService;
   idGenerator?: () => string;
 }
 
@@ -68,11 +79,27 @@ export interface SubmitPreferencesResult {
   recommendations: Recommendation[];
 }
 
-type TestFunctionEvent = UploadSelfieEvent | SubmitPreferencesEvent;
-type TestFunctionResponse = UploadSelfieResponse | SubmitPreferencesResult;
+export interface GeneratePreviewResult {
+  ok: true;
+  reportId: string;
+  cleanImages: string[];
+  watermarkedImages: string[];
+}
+
+export interface GeneratePreviewFailedResult {
+  ok: false;
+  reportId: string;
+  errorCode: string;
+  errorMessage: string;
+}
+
+type TestFunctionEvent = UploadSelfieEvent | SubmitPreferencesEvent | GeneratePreviewEvent;
+type GeneratePreviewResponse = GeneratePreviewResult | GeneratePreviewFailedResult;
+type TestFunctionResponse = UploadSelfieResponse | SubmitPreferencesResult | GeneratePreviewResponse;
 
 export function main(event: UploadSelfieEvent, context: TestFunctionContext): Promise<UploadSelfieResponse>;
 export function main(event: SubmitPreferencesEvent, context: TestFunctionContext): Promise<SubmitPreferencesResult>;
+export function main(event: GeneratePreviewEvent, context: TestFunctionContext): Promise<GeneratePreviewResponse>;
 export async function main(
   event: TestFunctionEvent,
   context: TestFunctionContext,
@@ -85,6 +112,10 @@ export async function main(
 
   if (event.action === "submitPreferences") {
     return submitPreferences(event, context, openid);
+  }
+
+  if (event.action === "generatePreview") {
+    return generatePreview(event, context, openid);
   }
 
   const rejectionReason = getSelfieRejectionReason(event.checks);
@@ -130,6 +161,89 @@ export async function main(
     ok: true,
     testId,
     selfieFileId: uploadResult.fileId,
+  };
+}
+
+async function generatePreview(
+  event: GeneratePreviewEvent,
+  context: TestFunctionContext,
+  openid: string,
+): Promise<GeneratePreviewResponse> {
+  if (!context.database.getTryOnTest || !context.database.getReport || !context.database.updateReport || !context.database.addProviderRun || !context.imageService) {
+    throw new Error("IMAGE_GENERATION_DEPENDENCY_MISSING");
+  }
+
+  const existingTest = await context.database.getTryOnTest(event.testId);
+
+  if (!existingTest || existingTest.openid !== openid || !existingTest.activeReportId) {
+    throw new Error("TRY_ON_TEST_NOT_FOUND");
+  }
+
+  const report = await context.database.getReport(existingTest.activeReportId);
+
+  if (!report || report.openid !== openid || report.testId !== event.testId) {
+    throw new Error("REPORT_NOT_FOUND");
+  }
+
+  const generation = await context.imageService.generateTryOn({
+    selfieFileId: existingTest.selfieFileId,
+    targetLipsticks: report.snapshot.recommendations,
+    testId: event.testId,
+    reportId: report._id,
+  });
+
+  if (!generation.ok) {
+    await context.database.addProviderRun({
+      _id: context.idGenerator?.() ?? crypto.randomUUID(),
+      testId: event.testId,
+      reportId: report._id,
+      openid,
+      provider: generation.provider,
+      status: "failed",
+      durationMs: generation.durationMs,
+      retryIndex: 0,
+      errorCode: generation.errorCode,
+      errorMessage: generation.errorMessage,
+      cleanImageFileIds: [],
+      watermarkedImageFileIds: [],
+      createdAt: context.now ?? new Date().toISOString(),
+    });
+
+    return {
+      ok: false,
+      reportId: report._id,
+      errorCode: generation.errorCode,
+      errorMessage: generation.errorMessage,
+    };
+  }
+
+  const providerRun: ProviderRun = {
+    _id: context.idGenerator?.() ?? crypto.randomUUID(),
+    testId: event.testId,
+    reportId: report._id,
+    openid,
+    provider: generation.provider,
+    status: "success",
+    durationMs: generation.durationMs,
+    retryIndex: 0,
+    errorCode: null,
+    errorMessage: null,
+    cleanImageFileIds: generation.cleanImages,
+    watermarkedImageFileIds: generation.watermarkedImages,
+    createdAt: context.now ?? new Date().toISOString(),
+  };
+
+  await context.database.addProviderRun(providerRun);
+  await context.database.updateReport(report._id, {
+    previewImages: generation.watermarkedImages,
+    paidImages: generation.cleanImages,
+  });
+
+  return {
+    ok: true,
+    reportId: report._id,
+    cleanImages: generation.cleanImages,
+    watermarkedImages: generation.watermarkedImages,
   };
 }
 

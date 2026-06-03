@@ -1,4 +1,10 @@
-import type { SubmitPreferencesResult, UploadSelfieRejectedResult, UploadSelfieResult } from "../../cloudfunctions/user/test/index.js";
+import type {
+  GeneratePreviewFailedResult,
+  GeneratePreviewResult,
+  SubmitPreferencesResult,
+  UploadSelfieRejectedResult,
+  UploadSelfieResult,
+} from "../../cloudfunctions/user/test/index.js";
 import type { Preferences } from "../../shared/types/test.js";
 
 export interface CloudFunctionClient {
@@ -45,4 +51,19 @@ export async function submitPreferences(
   });
 
   return response.result as SubmitPreferencesResult;
+}
+
+export async function generatePreview(
+  client: CloudFunctionClient,
+  testId: string,
+): Promise<GeneratePreviewResult | GeneratePreviewFailedResult> {
+  const response = await client.cloud.callFunction({
+    name: "user-test",
+    data: {
+      action: "generatePreview",
+      testId,
+    },
+  });
+
+  return response.result as GeneratePreviewResult | GeneratePreviewFailedResult;
 }
