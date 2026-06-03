@@ -1,4 +1,5 @@
-import type { UploadSelfieRejectedResult, UploadSelfieResult } from "../../cloudfunctions/user/test/index.js";
+import type { SubmitPreferencesResult, UploadSelfieRejectedResult, UploadSelfieResult } from "../../cloudfunctions/user/test/index.js";
+import type { Preferences } from "../../shared/types/test.js";
 
 export interface CloudFunctionClient {
   cloud: {
@@ -27,4 +28,21 @@ export async function uploadSelfie(
   });
 
   return response.result as UploadSelfieResult | UploadSelfieRejectedResult;
+}
+
+export async function submitPreferences(
+  client: CloudFunctionClient,
+  testId: string,
+  preferences: Preferences,
+): Promise<SubmitPreferencesResult> {
+  const response = await client.cloud.callFunction({
+    name: "user-test",
+    data: {
+      action: "submitPreferences",
+      testId,
+      preferences,
+    },
+  });
+
+  return response.result as SubmitPreferencesResult;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { type CloudFunctionClient, uploadSelfie } from "../miniprogram/services/test.js";
+import { type CloudFunctionClient, submitPreferences, uploadSelfie } from "../miniprogram/services/test.js";
 
 test("小程序自拍上传服务只通过用户测试云函数提交自拍", async () => {
   const calls: Array<{ name: string; data?: Record<string, unknown> }> = [];
@@ -38,6 +38,45 @@ test("小程序自拍上传服务只通过用户测试云函数提交自拍", as
           contentType: "image/jpeg",
           buffer: "base64-image-data",
         },
+      },
+    },
+  ]);
+});
+
+test("小程序偏好提交服务只通过用户测试云函数提交偏好", async () => {
+  const calls: Array<{ name: string; data?: Record<string, unknown> }> = [];
+  const client: CloudFunctionClient = {
+    cloud: {
+      async callFunction(options) {
+        calls.push(options);
+
+        return {
+          result: {
+            ok: true,
+            reportId: "report-001",
+            recommendations: [],
+          },
+        };
+      },
+    },
+  };
+  const preferences = {
+    skinTone: "fair",
+    budgetRange: "mid",
+    scenes: ["commute"],
+    styles: ["brightening"],
+  };
+
+  const result = await submitPreferences(client, "test-001", preferences);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, [
+    {
+      name: "user-test",
+      data: {
+        action: "submitPreferences",
+        testId: "test-001",
+        preferences,
       },
     },
   ]);

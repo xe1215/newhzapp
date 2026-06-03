@@ -1,7 +1,8 @@
-import type { TryOnTest } from "../../../shared/types/test.js";
+import type { Lipstick, Preferences, Recommendation, TryOnTest } from "../../../shared/types/test.js";
+import type { Report } from "../../../shared/types/report.js";
 import { ERROR_CODES } from "../../../shared/constants/index.js";
 
-interface UploadSelfieEvent {
+export interface UploadSelfieEvent {
   action: "uploadSelfie";
   file: {
     name: string;
@@ -16,6 +17,12 @@ interface UploadSelfieEvent {
   };
 }
 
+export interface SubmitPreferencesEvent {
+  action: "submitPreferences";
+  testId: string;
+  preferences: Preferences;
+}
+
 export interface StorageClient {
   upload(options: {
     cloudPath: string;
@@ -27,6 +34,10 @@ export interface StorageClient {
 
 export interface TestDatabase {
   addTryOnTest(record: TryOnTest): Promise<{ id: string }>;
+  getTryOnTest?(testId: string): Promise<TryOnTest | null>;
+  listActiveLipsticks?(): Promise<Lipstick[]>;
+  updateTryOnTest?(testId: string, patch: Partial<TryOnTest>): Promise<void>;
+  addReport?(report: Report): Promise<{ id: string }>;
 }
 
 export interface TestFunctionContext {
@@ -51,14 +62,29 @@ export interface UploadSelfieRejectedResult {
 
 type UploadSelfieResponse = UploadSelfieResult | UploadSelfieRejectedResult;
 
+export interface SubmitPreferencesResult {
+  ok: true;
+  reportId: string;
+  recommendations: Recommendation[];
+}
+
+type TestFunctionEvent = UploadSelfieEvent | SubmitPreferencesEvent;
+type TestFunctionResponse = UploadSelfieResponse | SubmitPreferencesResult;
+
+export function main(event: UploadSelfieEvent, context: TestFunctionContext): Promise<UploadSelfieResponse>;
+export function main(event: SubmitPreferencesEvent, context: TestFunctionContext): Promise<SubmitPreferencesResult>;
 export async function main(
-  event: UploadSelfieEvent,
+  event: TestFunctionEvent,
   context: TestFunctionContext,
-): Promise<UploadSelfieResponse> {
+): Promise<TestFunctionResponse> {
   const openid = context.openid ?? context.OPENID;
 
   if (!openid) {
     throw new Error(ERROR_CODES.authOpenidMissing);
+  }
+
+  if (event.action === "submitPreferences") {
+    return submitPreferences(event, context, openid);
   }
 
   const rejectionReason = getSelfieRejectionReason(event.checks);
@@ -105,6 +131,98 @@ export async function main(
     testId,
     selfieFileId: uploadResult.fileId,
   };
+}
+
+async function submitPreferences(
+  event: SubmitPreferencesEvent,
+  context: TestFunctionContext,
+  openid: string,
+): Promise<SubmitPreferencesResult> {
+  if (!context.database.getTryOnTest || !context.database.listActiveLipsticks || !context.database.updateTryOnTest || !context.database.addReport) {
+    throw new Error("TEST_DATABASE_METHOD_MISSING");
+  }
+
+  const existingTest = await context.database.getTryOnTest(event.testId);
+
+  if (!existingTest || existingTest.openid !== openid) {
+    throw new Error("TRY_ON_TEST_NOT_FOUND");
+  }
+
+  const now = context.now ?? new Date().toISOString();
+  const reportId = context.idGenerator?.() ?? crypto.randomUUID();
+  const recommendations = recommendTop3(await context.database.listActiveLipsticks(), event.preferences);
+  const report: Report = {
+    _id: reportId,
+    openid,
+    testId: event.testId,
+    version: 1,
+    status: "active",
+    snapshot: {
+      preferences: event.preferences,
+      recommendations,
+    },
+    previewImages: [],
+    paidImages: [],
+    shareCardImages: [],
+    replacedByReportId: null,
+    unlockedAt: null,
+    expiresAt: existingTest.expiresAt,
+    deletedAt: null,
+    createdAt: now,
+  };
+
+  await context.database.addReport(report);
+  await context.database.updateTryOnTest(event.testId, {
+    preferences: event.preferences,
+    activeReportId: reportId,
+    updatedAt: now,
+  });
+
+  return {
+    ok: true,
+    reportId,
+    recommendations,
+  };
+}
+
+function recommendTop3(catalog: Lipstick[], preferences: Preferences): Recommendation[] {
+  return catalog
+    .filter((lipstick) => lipstick.status === "active")
+    .filter((lipstick) => lipstick.budgetRange === preferences.budgetRange)
+    .map((lipstick) => ({
+      lipstick,
+      score: scoreLipstick(lipstick, preferences),
+    }))
+    .filter((item) => item.score > Number.NEGATIVE_INFINITY)
+    .sort((left, right) => right.score - left.score || left.lipstick._id.localeCompare(right.lipstick._id))
+    .slice(0, 3)
+    .map(({ lipstick, score }) => ({
+      lipstickId: lipstick._id,
+      brand: lipstick.brand,
+      shadeName: lipstick.shadeName,
+      shadeCode: lipstick.shadeCode,
+      colorHex: lipstick.colorHex,
+      swatchImageFileId: lipstick.swatchImageFileId,
+      texture: lipstick.texture,
+      undertone: lipstick.undertone,
+      budgetRange: lipstick.budgetRange,
+      recommendationReason: lipstick.recommendationReason,
+      cautionNote: lipstick.cautionNote,
+      substitute: lipstick.substitute,
+      searchKeywords: [...lipstick.searchKeywords],
+      score,
+    }));
+}
+
+function scoreLipstick(lipstick: Lipstick, preferences: Preferences): number {
+  if (!lipstick.skinToneTags.includes(preferences.skinTone)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const sceneScore = preferences.scenes.filter((scene) => lipstick.sceneTags.includes(scene)).length * 10;
+  const styleScore = preferences.styles.filter((style) => lipstick.styleTags.includes(style)).length * 10;
+
+  return lipstick.baseScore + sceneScore + styleScore + lipstick.manualBoost;
 }
 
 function getSelfieRejectionReason(checks: UploadSelfieEvent["checks"]): string | null {
