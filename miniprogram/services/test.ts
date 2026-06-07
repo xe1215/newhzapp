@@ -1,6 +1,8 @@
 import type {
   GeneratePreviewFailedResult,
   GeneratePreviewResult,
+  RegeneratePreviewFailedResult,
+  RegeneratePreviewResult,
   SubmitPreferencesResult,
   UploadSelfieRejectedResult,
   UploadSelfieResult,
@@ -66,4 +68,19 @@ export async function generatePreview(
   });
 
   return response.result as GeneratePreviewResult | GeneratePreviewFailedResult;
+}
+
+export async function regeneratePreview(
+  client: CloudFunctionClient,
+  testId: string,
+): Promise<RegeneratePreviewResult | RegeneratePreviewFailedResult> {
+  const response = await client.cloud.callFunction({
+    name: "user-test",
+    data: {
+      action: "regeneratePreview",
+      testId,
+    },
+  });
+
+  return response.result as RegeneratePreviewResult | RegeneratePreviewFailedResult;
 }

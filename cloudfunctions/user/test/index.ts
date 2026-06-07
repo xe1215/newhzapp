@@ -31,6 +31,21 @@ export interface GeneratePreviewEvent {
   testId: string;
 }
 
+export interface RegeneratePreviewEvent {
+  action: "regeneratePreview";
+  testId: string;
+}
+
+export interface EventRecord {
+  _id: string;
+  openid: string;
+  eventName: "preview_regenerate_success" | "preview_regenerate_fail" | "preview_regenerate_limit_reached";
+  testId: string;
+  reportId: string | null;
+  properties: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface StorageClient {
   upload(options: {
     cloudPath: string;
@@ -44,11 +59,13 @@ export interface TestDatabase {
   addTryOnTest(record: TryOnTest): Promise<{ id: string }>;
   getTryOnTest?(testId: string): Promise<TryOnTest | null>;
   listActiveLipsticks?(): Promise<Lipstick[]>;
+  listReportsByTest?(testId: string): Promise<Report[]>;
   updateTryOnTest?(testId: string, patch: Partial<TryOnTest>): Promise<void>;
   addReport?(report: Report): Promise<{ id: string }>;
   getReport?(reportId: string): Promise<Report | null>;
   updateReport?(reportId: string, patch: Partial<Report>): Promise<void>;
   addProviderRun?(run: ProviderRun): Promise<{ id: string }>;
+  addEvent?(event: EventRecord): Promise<{ id: string }>;
 }
 
 export interface TestFunctionContext {
@@ -94,13 +111,32 @@ export interface GeneratePreviewFailedResult {
   errorMessage: string;
 }
 
-type TestFunctionEvent = UploadSelfieEvent | SubmitPreferencesEvent | GeneratePreviewEvent;
+export interface RegeneratePreviewResult {
+  ok: true;
+  reportId: string;
+  recommendations: Recommendation[];
+  cleanImages: string[];
+  watermarkedImages: string[];
+  remainingFreeRegenerations: number;
+}
+
+export interface RegeneratePreviewFailedResult {
+  ok: false;
+  reportId: string;
+  errorCode: string;
+  errorMessage: string;
+  remainingFreeRegenerations: number;
+}
+
+type TestFunctionEvent = UploadSelfieEvent | SubmitPreferencesEvent | GeneratePreviewEvent | RegeneratePreviewEvent;
 type GeneratePreviewResponse = GeneratePreviewResult | GeneratePreviewFailedResult;
-type TestFunctionResponse = UploadSelfieResponse | SubmitPreferencesResult | GeneratePreviewResponse;
+type RegeneratePreviewResponse = RegeneratePreviewResult | RegeneratePreviewFailedResult;
+type TestFunctionResponse = UploadSelfieResponse | SubmitPreferencesResult | GeneratePreviewResponse | RegeneratePreviewResponse;
 
 export function main(event: UploadSelfieEvent, context: TestFunctionContext): Promise<UploadSelfieResponse>;
 export function main(event: SubmitPreferencesEvent, context: TestFunctionContext): Promise<SubmitPreferencesResult>;
 export function main(event: GeneratePreviewEvent, context: TestFunctionContext): Promise<GeneratePreviewResponse>;
+export function main(event: RegeneratePreviewEvent, context: TestFunctionContext): Promise<RegeneratePreviewResponse>;
 export async function main(
   event: TestFunctionEvent,
   context: TestFunctionContext,
@@ -117,6 +153,10 @@ export async function main(
 
   if (event.action === "generatePreview") {
     return generatePreview(event, context, openid);
+  }
+
+  if (event.action === "regeneratePreview") {
+    return regeneratePreview(event, context, openid);
   }
 
   const rejectionReason = getSelfieRejectionReason(event.checks);
@@ -162,6 +202,186 @@ export async function main(
     ok: true,
     testId,
     selfieFileId: uploadResult.fileId,
+  };
+}
+
+async function regeneratePreview(
+  event: RegeneratePreviewEvent,
+  context: TestFunctionContext,
+  openid: string,
+): Promise<RegeneratePreviewResponse> {
+  if (
+    !context.database.getTryOnTest ||
+    !context.database.getReport ||
+    !context.database.listReportsByTest ||
+    !context.database.listActiveLipsticks ||
+    !context.database.addReport ||
+    !context.database.updateReport ||
+    !context.database.updateTryOnTest ||
+    !context.database.addProviderRun ||
+    !context.database.addEvent ||
+    !context.imageService
+  ) {
+    throw new Error("PREVIEW_REGENERATE_DEPENDENCY_MISSING");
+  }
+
+  const existingTest = await context.database.getTryOnTest(event.testId);
+
+  if (!existingTest || existingTest.openid !== openid || !existingTest.activeReportId || !existingTest.preferences) {
+    throw new Error("TRY_ON_TEST_NOT_FOUND");
+  }
+
+  const previousReport = await context.database.getReport(existingTest.activeReportId);
+
+  if (!previousReport || previousReport.openid !== openid || previousReport.testId !== event.testId || previousReport.status !== "active") {
+    throw new Error("ACTIVE_REPORT_NOT_FOUND");
+  }
+
+  const now = context.now ?? new Date().toISOString();
+
+  if (existingTest.previewRegenerateCount >= existingTest.maxPreviewRegenerateCount) {
+    await context.database.addEvent({
+      _id: context.idGenerator?.() ?? crypto.randomUUID(),
+      openid,
+      eventName: "preview_regenerate_limit_reached",
+      testId: event.testId,
+      reportId: previousReport._id,
+      properties: {
+        previewRegenerateCount: existingTest.previewRegenerateCount,
+        maxPreviewRegenerateCount: existingTest.maxPreviewRegenerateCount,
+      },
+      createdAt: now,
+    });
+
+    return {
+      ok: false,
+      reportId: previousReport._id,
+      errorCode: "PREVIEW_REGENERATE_LIMIT_REACHED",
+      errorMessage: "本次免费换色机会已用完，你可以修改偏好重新测试",
+      remainingFreeRegenerations: 0,
+    };
+  }
+
+  const existingReports = await context.database.listReportsByTest(event.testId);
+  const seenLipstickIds = new Set(
+    existingReports.flatMap((report) => report.snapshot.recommendations.map((recommendation) => recommendation.lipstickId)),
+  );
+  const recommendations = recommendTop3(await context.database.listActiveLipsticks(), existingTest.preferences, seenLipstickIds);
+  const reportId = context.idGenerator?.() ?? crypto.randomUUID();
+
+  const generation = await context.imageService.generateTryOn({
+    selfieFileId: existingTest.selfieFileId,
+    targetLipsticks: recommendations,
+    testId: event.testId,
+    reportId,
+  });
+
+  if (!generation.ok) {
+    await context.database.addProviderRun({
+      _id: context.idGenerator?.() ?? crypto.randomUUID(),
+      testId: event.testId,
+      reportId,
+      openid,
+      provider: generation.provider,
+      status: "failed",
+      durationMs: generation.durationMs,
+      retryIndex: 0,
+      errorCode: generation.errorCode,
+      errorMessage: generation.errorMessage,
+      cleanImageFileIds: [],
+      watermarkedImageFileIds: [],
+      createdAt: now,
+    });
+    await context.database.addEvent({
+      _id: context.idGenerator?.() ?? crypto.randomUUID(),
+      openid,
+      eventName: "preview_regenerate_fail",
+      testId: event.testId,
+      reportId: previousReport._id,
+      properties: {
+        attemptedReportId: reportId,
+        errorCode: generation.errorCode,
+        previewRegenerateCount: existingTest.previewRegenerateCount,
+      },
+      createdAt: now,
+    });
+
+    return {
+      ok: false,
+      reportId: previousReport._id,
+      errorCode: generation.errorCode,
+      errorMessage: generation.errorMessage,
+      remainingFreeRegenerations: existingTest.maxPreviewRegenerateCount - existingTest.previewRegenerateCount,
+    };
+  }
+
+  const providerRun: ProviderRun = {
+    _id: context.idGenerator?.() ?? crypto.randomUUID(),
+    testId: event.testId,
+    reportId,
+    openid,
+    provider: generation.provider,
+    status: "success",
+    durationMs: generation.durationMs,
+    retryIndex: 0,
+    errorCode: null,
+    errorMessage: null,
+    cleanImageFileIds: generation.cleanImages,
+    watermarkedImageFileIds: generation.watermarkedImages,
+    createdAt: now,
+  };
+  const nextCount = existingTest.previewRegenerateCount + 1;
+  const report: Report = {
+    _id: reportId,
+    openid,
+    testId: event.testId,
+    version: Math.max(previousReport.version, ...existingReports.map((item) => item.version)) + 1,
+    status: "active",
+    snapshot: {
+      preferences: existingTest.preferences,
+      recommendations,
+    },
+    previewImages: generation.watermarkedImages,
+    paidImages: generation.cleanImages,
+    shareCardImages: [],
+    replacedByReportId: null,
+    unlockedAt: null,
+    expiresAt: existingTest.expiresAt,
+    deletedAt: null,
+    createdAt: now,
+  };
+
+  await context.database.addProviderRun(providerRun);
+  await context.database.addReport(report);
+  await context.database.updateReport(previousReport._id, {
+    status: "replaced",
+    replacedByReportId: reportId,
+  });
+  await context.database.updateTryOnTest(event.testId, {
+    activeReportId: reportId,
+    previewRegenerateCount: nextCount,
+    updatedAt: now,
+  });
+  await context.database.addEvent({
+    _id: context.idGenerator?.() ?? crypto.randomUUID(),
+    openid,
+    eventName: "preview_regenerate_success",
+    testId: event.testId,
+    reportId,
+    properties: {
+      previousReportId: previousReport._id,
+      previewRegenerateCount: nextCount,
+    },
+    createdAt: now,
+  });
+
+  return {
+    ok: true,
+    reportId,
+    recommendations,
+    cleanImages: generation.cleanImages,
+    watermarkedImages: generation.watermarkedImages,
+    remainingFreeRegenerations: existingTest.maxPreviewRegenerateCount - nextCount,
   };
 }
 
@@ -300,9 +520,10 @@ async function submitPreferences(
   };
 }
 
-function recommendTop3(catalog: Lipstick[], preferences: Preferences): Recommendation[] {
+function recommendTop3(catalog: Lipstick[], preferences: Preferences, excludedLipstickIds = new Set<string>()): Recommendation[] {
   return catalog
     .filter((lipstick) => lipstick.status === "active")
+    .filter((lipstick) => !excludedLipstickIds.has(lipstick._id))
     .filter((lipstick) => lipstick.budgetRange === preferences.budgetRange)
     .map((lipstick) => ({
       lipstick,
