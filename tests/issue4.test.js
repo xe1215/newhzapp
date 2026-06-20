@@ -1532,3 +1532,84 @@ test("generateTryOnImages stores local watermarked previews separately from clea
     ...result.data.paidImages,
   ]);
 });
+
+test("generateTryOnImages keeps paid and preview image ordering aligned with recommendation rank and lipstick id", async () => {
+  const testFunction = require("../cloudfunctions/test");
+  const calls = [];
+  const result = await testFunction.main(
+    {
+      action: "generateTryOnImages",
+      data: {
+        testId: "test-abc",
+        reportId: "report-abc",
+      },
+    },
+    {},
+    {
+      db: createFakeDb(calls),
+      wxContext: { OPENID: "openid-123" },
+      now: () => new Date("2026-06-13T08:00:00.000Z"),
+      env: {
+        IMAGE_PROVIDER: "mock",
+        IMAGE_PROVIDER_MODEL: "mock-tryon-v1",
+        IMAGE_PROVIDER_API_KEY: "test-key",
+      },
+      durationMs: () => 200,
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.deepStrictEqual(result.data.paidImages, [
+    "cloud://tryon/report-abc/1-best-clean.jpg",
+    "cloud://tryon/report-abc/2-second-clean.jpg",
+    "cloud://tryon/report-abc/3-third-clean.jpg",
+  ]);
+  assert.deepStrictEqual(result.data.previewImages, [
+    "cloud://tryon/report-abc/1-best-watermark.jpg",
+    "cloud://tryon/report-abc/2-second-watermark.jpg",
+    "cloud://tryon/report-abc/3-third-watermark.jpg",
+  ]);
+
+  const reportUpdate = calls.find(
+    (call) =>
+      call[0] === "doc.update" &&
+      call[1] === "reports" &&
+      call[3].data.generationStatus === "success"
+  );
+  assert.ok(reportUpdate, "report should be updated after successful generation");
+  assert.deepStrictEqual(reportUpdate[3].data.paidImages, result.data.paidImages);
+  assert.deepStrictEqual(reportUpdate[3].data.previewImages, result.data.previewImages);
+});
+
+test("generateTryOnImages falls back to safe timeout defaults when provider timeout config is invalid", async () => {
+  const testFunction = require("../cloudfunctions/test");
+  const calls = [];
+
+  const result = await testFunction.main(
+    {
+      action: "generateTryOnImages",
+      data: {
+        testId: "test-abc",
+        reportId: "report-abc",
+      },
+    },
+    {},
+    {
+      db: createFakeDb(calls),
+      wxContext: { OPENID: "openid-123" },
+      now: () => new Date("2026-06-13T08:00:00.000Z"),
+      env: {
+        IMAGE_PROVIDER: "mock",
+        IMAGE_PROVIDER_MODEL: "mock-tryon-v1",
+        IMAGE_PROVIDER_API_KEY: "test-key",
+        IMAGE_PROVIDER_TIMEOUT_MS: "-1",
+      },
+      durationMs: () => 200,
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  const providerRun = calls.find((call) => call[0] === "add" && call[1] === "provider_runs");
+  assert.ok(providerRun, "provider run should be recorded");
+  assert.strictEqual(providerRun[2].data.timeoutMs, 30000);
+});

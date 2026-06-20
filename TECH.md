@@ -10,18 +10,18 @@
 - `cloudfunctionRoot`: `cloudfunctions/`
 - `compileType`: `miniprogram`
 - `appid`: `wx4dd9d0c434997a0f`
-- `projectname`: 公共配置为 `quickstart-wx-cloud`，私有配置覆盖为 `newhzapp`
+- `projectname`: `newhzapp`
 - `libVersion`: `3.16.1`
 - 代码风格：微信小程序原生 JavaScript / WXML / WXSS
 - 编辑器缩进：2 spaces
 
-当前代码仍是微信云开发 QuickStart：
+当前代码已完成第一版产品骨架替换：
 
-- `miniprogram/app.js` 已调用 `wx.cloud.init`，但 `globalData.env` 为空
-- `miniprogram/envList.js` 的 `envList` 为空
-- `miniprogram/app.json` 只注册 `pages/index/index` 和 `pages/example/index`
-- 云函数只有 `cloudfunctions/quickstartFunctions`
-- `quickstartFunctions` 当前操作示例 `sales` 集合，尚无口红试色业务集合
+- `miniprogram/app.js` 已调用 `wx.cloud.init`，并通过 `CLOUD_ENV_ID` 绑定当前环境
+- `miniprogram/envList.js` 已提供 `newhzapp-d4g8fk4yiaa3fa679`
+- `miniprogram/app.json` 已注册第一版业务页面路由
+- 已建立业务云函数目录：`user`、`test`、`report`、`payment`、`share`、`cleanupExpiredData`
+- `quickstartFunctions` 仍保留原始样板能力，但只作为参考目录，不承载用户侧业务入口
 
 ## 2. 技术栈选择
 
@@ -63,19 +63,43 @@ newhzapp/
     envList.js
     sitemap.json
     pages/
-      index/
-      example/
+      home/
+      upload/
+      preferences/
+      generating/
+      preview/
+      payment-result/
+      report/
+      my-reports/
+      share/
+      privacy/
+      refund-help/
     components/
       cloudTipModal/
     images/
+    services/
+      auth.js
+      test.js
+      report.js
+      payment.js
+      share.js
+    utils/
+      constants.js
+      errors.js
   cloudfunctions/
+    user/
+    test/
+    report/
+    payment/
+    share/
+    cleanupExpiredData/
     quickstartFunctions/
       config.json
       index.js
       package.json
 ```
 
-当前结构中的 `pages/index`、`pages/example` 和 `quickstartFunctions` 属于云开发样板。后续业务实现时，应逐步替换或迁移，避免用户侧继续看到 QuickStart 内容。
+当前结构中的 `quickstartFunctions` 属于云开发样板参考目录。用户默认入口和业务主链路已切换到新页面与新云函数；后续应继续减少对 QuickStart 参考代码的依赖，并在业务稳定后决定是否删除。
 
 ## 5. 目标工程结构
 
@@ -140,8 +164,7 @@ newhzapp/
 
 当前风险：
 
-- `globalData.env` 为空时，前端点击非跳过环境检查的 QuickStart 项会弹出“请在 miniprogram/app.js 中正确配置 env 参数”。
-- `envList` 为空时，页面无法提供环境选择。
+- 当前环境常量已写死在代码中，后续如切换 CloudBase 环境，需要同步更新 `miniprogram/utils/constants.js` 和相关部署配置。
 
 ## 7. 数据模型
 

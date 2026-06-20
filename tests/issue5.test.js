@@ -66,9 +66,11 @@ function createFakeDb(calls) {
                       recommendations: [
                         {
                           rank: 1,
+                          brandName: "Demo Brand",
                           shadeName: "Rose Tea",
                           shadeCode: "A01",
                           colorHex: "#B84B65",
+                          priceCents: 19900,
                         },
                       ],
                     },
@@ -114,14 +116,11 @@ test("report getPreview returns the current user's generated preview image file 
     "cloud://env/bucket/two.jpg",
     "cloud://env/bucket/three.jpg",
   ]);
-  assert.deepStrictEqual(result.data.recommendations, [
-    {
-      rank: 1,
-      shadeName: "Rose Tea",
-      shadeCode: "A01",
-      colorHex: "#B84B65",
-    },
-  ]);
+  assert.ok(!Object.prototype.hasOwnProperty.call(result.data, "recommendations"));
+  assert.ok(!JSON.stringify(result.data).includes("Demo Brand"));
+  assert.ok(!JSON.stringify(result.data).includes("Rose Tea"));
+  assert.ok(!JSON.stringify(result.data).includes("A01"));
+  assert.ok(!JSON.stringify(result.data).includes("#B84B65"));
 });
 
 test("report getPreview rejects reports that do not belong to the current user", async () => {
@@ -162,6 +161,8 @@ test("preview page loads report preview images through the report service and re
   assert.match(template, /<image/);
   assert.match(template, /wx:for="\{\{previewImages\}\}"/);
   assert.match(template, /src="\{\{item\.url\}\}"/);
+  assert.doesNotMatch(template, /recommendation/);
+  assert.doesNotMatch(template, /shadeName/);
   assert.match(template, /wx:if="\{\{loading\}\}"/);
   assert.match(template, /wx:elif="\{\{errorText\}\}"/);
   assert.match(styles, /\.preview-image/);

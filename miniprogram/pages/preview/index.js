@@ -7,7 +7,6 @@ Page({
     loading: true,
     errorText: "",
     previewImages: [],
-    recommendations: [],
   },
 
   onLoad(query) {
@@ -48,11 +47,10 @@ Page({
 
         return this.resolvePreviewImages(result.data || {});
       })
-      .then(({ previewImages, recommendations }) => {
+      .then((previewImages) => {
         this.setData({
           loading: false,
           previewImages,
-          recommendations,
           errorText: previewImages.length ? "" : "No preview images are ready yet.",
         });
       })
@@ -67,15 +65,9 @@ Page({
 
   resolvePreviewImages(report) {
     const fileIDs = Array.isArray(report.previewImages) ? report.previewImages : [];
-    const recommendations = Array.isArray(report.recommendations)
-      ? report.recommendations
-      : [];
 
     if (!fileIDs.length) {
-      return Promise.resolve({
-        previewImages: [],
-        recommendations,
-      });
+      return Promise.resolve([]);
     }
 
     return wx.cloud
@@ -84,17 +76,14 @@ Page({
       })
       .then((res) => {
         const fileList = res.fileList || [];
-        return {
-          recommendations,
-          previewImages: fileIDs.map((fileID, index) => {
-            const file = fileList[index] || {};
-            return {
-              fileID,
-              url: file.tempFileURL || file.fileID || fileID,
-              recommendation: recommendations[index] || {},
-            };
-          }),
-        };
+        return fileIDs.map((fileID, index) => {
+          const file = fileList[index] || {};
+          return {
+            fileID,
+            url: file.tempFileURL || file.fileID || fileID,
+            title: `Look ${index + 1}`,
+          };
+        });
       });
   },
 

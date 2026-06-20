@@ -27,6 +27,36 @@ function readText(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
+function loadPreferencesPage() {
+  const pagePath = path.join(root, "miniprogram/pages/preferences/index.js");
+  const originalPage = global.Page;
+  const originalWx = global.wx;
+  const originalGetApp = global.getApp;
+  const cached = require.cache[pagePath];
+  let pageDefinition;
+
+  global.Page = function registerPage(definition) {
+    pageDefinition = definition;
+  };
+  global.wx = {};
+  global.getApp = () => ({ globalData: {} });
+
+  delete require.cache[pagePath];
+  require(pagePath);
+
+  global.Page = originalPage;
+  global.wx = originalWx;
+  global.getApp = originalGetApp;
+
+  if (cached) {
+    require.cache[pagePath] = cached;
+  } else {
+    delete require.cache[pagePath];
+  }
+
+  return pageDefinition;
+}
+
 function test(name, fn) {
   Promise.resolve()
     .then(fn)
@@ -256,4 +286,173 @@ test("preferences page submits user choices through the test service", () => {
   assert.doesNotMatch(page, /wx\.cloud\.database\s*\(/);
   assert.match(service, /function submitPreferences/);
   assert.match(service, /callBusinessFunction\("test", "submitPreferences"/);
+});
+
+test("preference submission fails cleanly when three unique lipstick recommendations cannot be formed", async () => {
+  const testFunction = require("../cloudfunctions/test");
+  const calls = [];
+  const duplicateOnlyLipsticks = [
+    {
+      _id: "best",
+      status: "active",
+      brand: "Brand A",
+      shadeName: "Rose Tea",
+      shadeCode: "A01",
+      colorHex: "#b84b65",
+      budgetRange: "mid",
+      skinToneTags: ["neutral"],
+      sceneTags: ["daily"],
+      styleTags: ["natural"],
+      manualBoost: 8,
+    },
+    {
+      _id: "duplicate-brand",
+      status: "active",
+      brand: "Brand A",
+      shadeName: "Rose Tea Extra",
+      shadeCode: "A02",
+      colorHex: "#d15a76",
+      budgetRange: "mid",
+      skinToneTags: ["neutral"],
+      sceneTags: ["daily"],
+      styleTags: ["natural"],
+      manualBoost: 7,
+    },
+    {
+      _id: "duplicate-color",
+      status: "active",
+      brand: "Brand B",
+      shadeName: "Rose Tea Twin",
+      shadeCode: "B01",
+      colorHex: "#b84b65",
+      budgetRange: "mid",
+      skinToneTags: ["neutral"],
+      sceneTags: ["daily"],
+      styleTags: ["natural"],
+      manualBoost: 6,
+    },
+  ];
+
+  function createDuplicateOnlyDb(localCalls) {
+    return {
+      collection(name) {
+        localCalls.push(["collection", name]);
+        return {
+          where(query) {
+            localCalls.push(["where", name, query]);
+            return {
+              async get() {
+                localCalls.push(["get", name]);
+                if (name === "lipsticks") {
+                  return { data: duplicateOnlyLipsticks };
+                }
+
+                return { data: [] };
+              },
+            };
+          },
+          doc(id) {
+            localCalls.push(["doc", name, id]);
+            return {
+              async update(payload) {
+                localCalls.push(["doc.update", name, id, payload]);
+                return { stats: { updated: 1 } };
+              },
+            };
+          },
+          async add(payload) {
+            localCalls.push(["add", name, payload]);
+            return { _id: `${name}-1` };
+          },
+        };
+      },
+    };
+  }
+
+  const result = await testFunction.main(
+    {
+      action: "submitPreferences",
+      data: {
+        testId: "test-abc",
+        preferences: {
+          skinTone: "neutral",
+          budget: "mid",
+          scene: "daily",
+          style: "natural",
+        },
+      },
+    },
+    {},
+    {
+      db: createDuplicateOnlyDb(calls),
+      wxContext: { OPENID: "openid-123" },
+      now: () => new Date("2026-06-13T08:00:00.000Z"),
+      id: () => "report-abc",
+    }
+  );
+
+  assert.strictEqual(result.code, "RECOMMENDATION_NOT_ENOUGH");
+  assert.strictEqual(result.data.recommendations.length, 1);
+  assert.strictEqual(
+    calls.some((call) => call[0] === "add" && call[1] === "reports"),
+    false
+  );
+  assert.strictEqual(
+    calls.some((call) => call[0] === "doc.update" && call[1] === "try_on_tests"),
+    false
+  );
+  assert.strictEqual(
+    calls.some((call) => call[0] === "add" && call[1] === "events"),
+    false
+  );
+});
+
+test("preferences page ignores invalid option values instead of mutating recommendation inputs", () => {
+  const page = loadPreferencesPage();
+  const state = {
+    data: {
+      skinTone: "neutral",
+      budget: "mid",
+      scene: "daily",
+      style: "natural",
+      feedback: "existing message",
+      options: {
+        skinTone: [
+          { value: "cool", label: "Cool" },
+          { value: "neutral", label: "Neutral" },
+          { value: "warm", label: "Warm" },
+        ],
+        budget: [
+          { value: "low", label: "Low" },
+          { value: "mid", label: "Mid" },
+          { value: "high", label: "High" },
+        ],
+        scene: [
+          { value: "daily", label: "Daily" },
+          { value: "date", label: "Date" },
+          { value: "commute", label: "Commute" },
+        ],
+        style: [
+          { value: "natural", label: "Natural" },
+          { value: "bold", label: "Bold" },
+          { value: "commute", label: "Commute" },
+        ],
+      },
+    },
+    setData(update) {
+      this.data = Object.assign({}, this.data, update);
+    },
+  };
+
+  page.selectOption.call(state, {
+    currentTarget: {
+      dataset: {
+        field: "skinTone",
+        value: "impossible-tone",
+      },
+    },
+  });
+
+  assert.strictEqual(state.data.skinTone, "neutral");
+  assert.strictEqual(state.data.feedback, "existing message");
 });

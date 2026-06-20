@@ -7,14 +7,14 @@
 当前已确认：
 
 - 小程序 AppID：`wx4dd9d0c434997a0f`
-- 微信开发者工具项目名：公共配置为 `quickstart-wx-cloud`，私有配置为 `newhzapp`
+- 微信开发者工具项目名：`newhzapp`
 - 小程序根目录：`miniprogram/`
 - 云函数根目录：`cloudfunctions/`
 - 基础库版本：`3.16.1`
-- 当前代码状态：仍是微信云开发 QuickStart 样板，尚未实现口红试色业务闭环
-- 当前页面：`pages/index/index`、`pages/example/index`
-- 当前云函数：`quickstartFunctions`
-- 当前云环境：`miniprogram/app.js` 的 `globalData.env` 仍为空，`miniprogram/envList.js` 仍为空
+- 当前代码状态：已完成第一版产品骨架替换，用户入口已切换为业务首页，但完整业务闭环仍未完成
+- 当前页面：`pages/home/index`、`pages/upload/index`、`pages/preferences/index`、`pages/generating/index`、`pages/preview/index`、`pages/payment-result/index`、`pages/report/index`、`pages/my-reports/index`、`pages/share/index`、`pages/privacy/index`、`pages/refund-help/index`
+- 当前云函数：`user`、`test`、`report`、`payment`、`share`、`cleanupExpiredData` 已建；`quickstartFunctions` 仅保留为参考目录
+- 当前云环境：`miniprogram/app.js` 的 `globalData.env` 和 `miniprogram/envList.js` 已写入 `newhzapp-d4g8fk4yiaa3fa679`
 
 因此，本 PRD 描述的是第一版目标产品；“当前代码基线”单独列出，避免把样板工程误认为已完成功能。
 
@@ -34,25 +34,26 @@
 
 ## 4. 当前代码基线
 
-当前仓库可以作为微信云开发小程序起点，但尚不是口红试色产品。
+当前仓库已经完成第一版产品骨架改造，但仍未完成完整口红试色闭环。
 
 已具备：
 
 - 小程序项目配置文件已存在：`project.config.json`、`project.private.config.json`
 - 云开发目录已存在：`miniprogram/`、`cloudfunctions/`
-- 微信云开发初始化代码已存在
-- QuickStart 示例页可展示云托管、云函数、数据库、云存储、AI 接入能力等入口
-- `quickstartFunctions` 可用于获取 openid、生成小程序码、创建和操作示例 `sales` 集合
+- 微信云开发初始化代码已存在，且已绑定当前 CloudBase 环境
+- 第一版业务页面路由已注册，用户默认进入业务首页而不是 QuickStart 示例入口
+- 前端 service / utils 分层已建立
+- 业务云函数目录已建立：`user`、`test`、`report`、`payment`、`share`、`cleanupExpiredData`
+- `user` 云函数静默登录已打通，可通过 openid 创建/更新 `users` 记录
+- `quickstartFunctions` 仍保留，但仅作为原始样板参考，不再作为用户侧业务入口
 
 尚未具备：
 
-- 口红试色首页、上传自拍页、偏好选择页、预览页、报告页、我的报告页
 - 口红库、试色测试、报告、订单、分享、事件等业务集合
 - 口红推荐规则
-- 图像审核、质量检查、试色图生成
+- 完整稳定的图像审核、质量检查、试色图生成生产链路
 - 微信支付下单、回调、解锁和退款处理
 - 报告保存、分享卡片和生命周期清理
-- 云环境 ID 配置
 
 ## 5. 第一版核心流程
 

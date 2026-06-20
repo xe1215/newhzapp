@@ -47,6 +47,16 @@ Page({
       return;
     }
 
+    const fieldOptions =
+      this.data && this.data.options && Array.isArray(this.data.options[field])
+        ? this.data.options[field]
+        : [];
+    const isAllowedValue = fieldOptions.some((option) => option.value === value);
+
+    if (!isAllowedValue) {
+      return;
+    }
+
     this.setData({
       [field]: value,
       feedback: "",

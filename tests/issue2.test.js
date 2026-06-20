@@ -63,6 +63,58 @@ function createFakeDb(calls) {
   };
 }
 
+function loadUploadPage(options) {
+  const pagePath = path.join(root, "miniprogram/pages/upload/index.js");
+  const originalPage = global.Page;
+  const originalWx = global.wx;
+  const originalGetApp = global.getApp;
+  const cached = require.cache[pagePath];
+  let pageDefinition;
+
+  global.Page = function registerPage(definition) {
+    pageDefinition = definition;
+  };
+  global.wx = options.wx;
+  global.getApp = options.getApp;
+
+  Module._load = function patchedLoadWithTestService(request, parent, isMain) {
+    if (request === "wx-server-sdk") {
+      return {
+        DYNAMIC_CURRENT_ENV: "DYNAMIC_CURRENT_ENV",
+        init() {},
+        database() {
+          throw new Error("Test must inject a fake database");
+        },
+        getWXContext() {
+          throw new Error("Test must inject a fake WeChat context");
+        },
+      };
+    }
+
+    if (request === "../../services/test") {
+      return options.testService;
+    }
+
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  delete require.cache[pagePath];
+  require(pagePath);
+
+  Module._load = originalLoad;
+  global.Page = originalPage;
+  global.wx = originalWx;
+  global.getApp = originalGetApp;
+
+  if (cached) {
+    require.cache[pagePath] = cached;
+  } else {
+    delete require.cache[pagePath];
+  }
+
+  return pageDefinition;
+}
+
 test("test cloud function accepts a qualified selfie and creates a private test record", async () => {
   const testFunction = require("../cloudfunctions/test");
   const calls = [];
@@ -118,6 +170,7 @@ test("test cloud function accepts a qualified selfie and creates a private test 
 test("test cloud function rejects unsafe or low quality selfies with clear reasons", async () => {
   const testFunction = require("../cloudfunctions/test");
   const calls = [];
+  const deletedFiles = [];
 
   const result = await testFunction.main(
     {
@@ -139,6 +192,9 @@ test("test cloud function rejects unsafe or low quality selfies with clear reaso
       wxContext: { OPENID: "openid-123" },
       now: () => new Date("2026-06-13T08:00:00.000Z"),
       id: () => "test-abc",
+      deleteFile: async (fileID) => {
+        deletedFiles.push(fileID);
+      },
       moveFile: async () => {
         throw new Error("moveFile should not be called for rejected selfies");
       },
@@ -154,6 +210,7 @@ test("test cloud function rejects unsafe or low quality selfies with clear reaso
     "face_occluded",
   ]);
   assert.strictEqual(calls.length, 0);
+  assert.deepStrictEqual(deletedFiles, ["cloud://tmp/selfie.jpg"]);
 });
 
 test("upload page stores selfie privately through cloud function after client upload", () => {
@@ -166,4 +223,65 @@ test("upload page stores selfie privately through cloud function after client up
   assert.doesNotMatch(uploadPage, /cloudPath:\s*["']selfies\//);
   assert.match(testService, /function uploadSelfie/);
   assert.match(testService, /callBusinessFunction\("test", "uploadSelfie"/);
+});
+
+test("upload page surfaces concrete selfie rejection reasons for the user", async () => {
+  const wxRuntime = {
+    cloud: {
+      uploadFile() {
+        return Promise.resolve({ fileID: "cloud://tmp/selfie.jpg" });
+      },
+    },
+    navigateTo() {
+      throw new Error("navigateTo should not be called for rejected selfies");
+    },
+  };
+  const getAppRuntime = () => ({
+    globalData: {
+      user: { openid: "openid-123" },
+    },
+  });
+  const page = loadUploadPage({
+    getApp: getAppRuntime,
+    wx: wxRuntime,
+    testService: {
+      uploadSelfie() {
+        return Promise.resolve({
+          result: {
+            code: "SELFIE_REJECTED",
+            message: "",
+            data: {
+              reasons: ["image_blurry", "lips_not_visible"],
+            },
+          },
+        });
+      },
+    },
+  });
+
+  const state = {
+    data: {
+      uploading: false,
+      feedback: "",
+    },
+    setData(update) {
+      this.data = Object.assign({}, this.data, update);
+    },
+  };
+
+  const originalWx = global.wx;
+  const originalGetApp = global.getApp;
+  global.wx = wxRuntime;
+  global.getApp = getAppRuntime;
+
+  try {
+    await page.uploadSelectedSelfie.call(state, "C:/tmp/selfie.jpg");
+  } finally {
+    global.wx = originalWx;
+    global.getApp = originalGetApp;
+  }
+
+  assert.strictEqual(state.data.uploading, false);
+  assert.match(state.data.feedback, /clear/i);
+  assert.match(state.data.feedback, /lips/i);
 });

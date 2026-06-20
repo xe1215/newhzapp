@@ -45,6 +45,7 @@ const CLEAN_IMAGE_INSTRUCTION =
   "无水印版本要求：图像中不得出现任何文字、水印、logo、边框、贴纸或说明。";
 const JIMENG_PROMPT_LIMIT = 800;
 const PREVIEW_WATERMARK_TEXT = "PREVIEW";
+const DEFAULT_PROVIDER_TIMEOUT_MS = 30000;
 
 function ok(data) {
   return {
@@ -134,11 +135,26 @@ function getRuntime(deps) {
             await cloud.deleteFile({ fileList: [from] });
             return upload;
           },
+    deleteFile:
+      deps && deps.deleteFile
+        ? deps.deleteFile
+        : async (fileID) => {
+            if (!fileID) {
+              return;
+            }
+
+            await cloud.deleteFile({ fileList: [fileID] });
+          },
   };
 }
 
 function getProviderConfig(env) {
   const source = env || {};
+  const parsedTimeoutMs = Number(source.IMAGE_PROVIDER_TIMEOUT_MS);
+  const timeoutMs =
+    Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0
+      ? parsedTimeoutMs
+      : DEFAULT_PROVIDER_TIMEOUT_MS;
 
   return {
     provider: source.IMAGE_PROVIDER || "mock",
@@ -177,7 +193,7 @@ function getProviderConfig(env) {
     negativePrompt:
       source.TRYON_NEGATIVE_PROMPT ||
       TRYON_NEGATIVE_PROMPT,
-    timeoutMs: Number(source.IMAGE_PROVIDER_TIMEOUT_MS || 30000),
+    timeoutMs,
     referenceStrength: Number(
       source.IMAGE_PROVIDER_REFERENCE_STRENGTH || DEFAULT_REFERENCE_STRENGTH
     ),
@@ -1441,6 +1457,7 @@ async function uploadSelfie(event, deps) {
   const inspection = inspectSelfie(data.checks);
 
   if (!inspection.passed) {
+    await runtime.deleteFile(data.tempFileID).catch(() => null);
     return fail("SELFIE_REJECTED", "Selfie did not pass safety or quality checks", {
       reasons: inspection.reasons,
       safetyStatus: inspection.safetyStatus,
@@ -1700,6 +1717,7 @@ async function generateTryOnImages(event, deps) {
       status: "success",
       durationMs,
       retryIndex,
+      timeoutMs: config.timeoutMs,
       errorCode: "",
       errorMessage: "",
       prompts: generated.generated.prompts,
@@ -1759,6 +1777,7 @@ async function generateTryOnImages(event, deps) {
       status: "failed",
       durationMs,
       retryIndex,
+      timeoutMs: config.timeoutMs,
       errorCode,
       errorMessage,
       errorDetails: error.details || null,

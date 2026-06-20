@@ -6,7 +6,7 @@
   <view wx:else class="preview-grid">
     <view class="preview-card" wx:for="{{previewImages}}" wx:key="fileID">
       <image class="preview-image" src="{{item.url}}" mode="aspectFill"></image>
-      <view class="shade-name">{{item.recommendation.shadeName || 'Look ' + (index + 1)}}</view>
+      <view class="shade-name">{{item.title}}</view>
     </view>
   </view>
   <button class="primary-button" bindtap="unlockReport">Unlock report</button>

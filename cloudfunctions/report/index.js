@@ -57,10 +57,6 @@ async function getPreview(event, deps) {
   }
 
   const previewImages = Array.isArray(report.previewImages) ? report.previewImages : [];
-  const recommendations =
-    report.snapshot && Array.isArray(report.snapshot.recommendations)
-      ? report.snapshot.recommendations
-      : [];
 
   return ok({
     testId: data.testId,
@@ -69,7 +65,6 @@ async function getPreview(event, deps) {
     generationStatus: report.generationStatus || "",
     locked: !report.unlockedAt,
     previewImages,
-    recommendations,
   });
 }
 

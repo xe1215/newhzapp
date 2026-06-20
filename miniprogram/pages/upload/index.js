@@ -1,6 +1,32 @@
 const testService = require("../../services/test");
 const { ERROR_MESSAGES } = require("../../utils/errors");
 
+const SELFIE_REJECTION_REASON_MESSAGES = {
+  content_unsafe: "This photo cannot be used because it did not pass content safety checks.",
+  face_missing: "Please retake the photo with your full face clearly visible.",
+  lips_not_visible: "Please retake the photo with your lips clearly visible.",
+  image_blurry: "Please retake the photo in better light so your face looks clear.",
+  face_occluded: "Please remove anything covering your face before retaking the photo.",
+};
+
+function formatSelfieRejectionFeedback(result) {
+  const reasons =
+    result &&
+    result.data &&
+    Array.isArray(result.data.reasons)
+      ? result.data.reasons
+      : [];
+
+  if (!reasons.length) {
+    return result.message || ERROR_MESSAGES[result.code] || ERROR_MESSAGES.UNKNOWN;
+  }
+
+  return reasons
+    .map((reason) => SELFIE_REJECTION_REASON_MESSAGES[reason])
+    .filter(Boolean)
+    .join(" ");
+}
+
 Page({
   data: {
     uploading: false,
@@ -37,7 +63,7 @@ Page({
       feedback: "Checking your selfie...",
     });
 
-    wx.cloud
+    return wx.cloud
       .uploadFile({
         cloudPath: uploadPath,
         filePath: tempFilePath,
@@ -51,7 +77,9 @@ Page({
         const result = response.result || {};
         if (result.code !== 0) {
           const message =
-            result.message || ERROR_MESSAGES[result.code] || ERROR_MESSAGES.UNKNOWN;
+            result.code === "SELFIE_REJECTED"
+              ? formatSelfieRejectionFeedback(result)
+              : result.message || ERROR_MESSAGES[result.code] || ERROR_MESSAGES.UNKNOWN;
           this.setData({
             uploading: false,
             feedback: message,
