@@ -16,9 +16,14 @@ function regeneratePreview(data) {
   return callBusinessFunction("test", "regeneratePreview", data);
 }
 
+function generateTryOnImages(data) {
+  return callBusinessFunction("test", "generateTryOnImages", data);
+}
+
 module.exports = {
   createTest,
   uploadSelfie,
   submitPreferences,
   regeneratePreview,
+  generateTryOnImages,
 };

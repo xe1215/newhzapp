@@ -90,6 +90,34 @@ const lipsticks = [
     searchKeywords: ["cocoa pink lipstick"],
   },
   {
+    _id: "duplicate-brand",
+    status: "active",
+    brand: "Brand A",
+    shadeName: "Cocoa Pink Intense",
+    shadeCode: "C99",
+    colorHex: "#8f4054",
+    priceRange: "mid",
+    skinToneTags: ["neutral"],
+    budgetRange: "mid",
+    sceneTags: ["daily"],
+    styleTags: ["natural"],
+    manualBoost: 6,
+  },
+  {
+    _id: "duplicate-color",
+    status: "active",
+    brand: "Brand Z",
+    shadeName: "Rose Tea Twin",
+    shadeCode: "Z01",
+    colorHex: "#b84b65",
+    priceRange: "mid",
+    skinToneTags: ["neutral"],
+    budgetRange: "mid",
+    sceneTags: ["daily"],
+    styleTags: ["natural"],
+    manualBoost: 5,
+  },
+  {
     _id: "third",
     status: "active",
     brand: "Brand D",
@@ -195,6 +223,14 @@ test("preference submission updates test, records event, ranks active lipsticks,
     ["best", "second", "third"]
   );
   assert.ok(result.data.recommendations.every((item) => item.brand && item.shadeCode));
+  assert.strictEqual(
+    new Set(result.data.recommendations.map((item) => item.brand)).size,
+    3
+  );
+  assert.strictEqual(
+    new Set(result.data.recommendations.map((item) => item.colorHex.toLowerCase())).size,
+    3
+  );
   assert.ok(result.data.recommendations.every((item) => item.recommendationReason !== undefined));
 
   const testUpdate = calls.find((call) => call[0] === "doc.update" && call[1] === "try_on_tests");
