@@ -50,6 +50,7 @@ function test(name, fn) {
 
 test("mini program registers the M1 product routes and environment", () => {
   const appConfig = readJson("miniprogram/app.json");
+  const projectConfig = readJson("project.config.json");
   const expectedPages = [
     "pages/home/index",
     "pages/upload/index",
@@ -65,6 +66,8 @@ test("mini program registers the M1 product routes and environment", () => {
   ];
 
   assert.deepStrictEqual(appConfig.pages, expectedPages);
+  assert.strictEqual(projectConfig.projectname, "newhzapp");
+  assert.deepStrictEqual(projectConfig.condition.miniprogram.list, []);
 
   const constants = require("../miniprogram/utils/constants");
   assert.strictEqual(constants.CLOUD_ENV_ID, "newhzapp-d4g8fk4yiaa3fa679");

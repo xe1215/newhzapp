@@ -12,8 +12,13 @@ function listMyReports() {
   return callBusinessFunction("report", "listMyReports");
 }
 
+function hideReport(data) {
+  return callBusinessFunction("report", "hideReport", data);
+}
+
 module.exports = {
   getPreview,
   getReport,
   listMyReports,
+  hideReport,
 };

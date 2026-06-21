@@ -1,4 +1,5 @@
 const authService = require("../../services/auth");
+const { unwrapCloudCall } = require("../../utils/business");
 
 Page({
   data: {
@@ -21,7 +22,10 @@ Page({
       .silentLogin()
       .then((response) => {
         const app = getApp();
-        app.globalData.user = response.result && response.result.data;
+        app.globalData.user = unwrapCloudCall(
+          response,
+          "Cloud login is not ready. Please try again later."
+        );
         this.setData({ userReady: true, loginError: "" });
       })
       .catch(() => {
