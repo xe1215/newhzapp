@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="title">My reports</view>
+  <view class="copy">Paid reports will appear here for review.</view>
+  <view wx:if="{{loading}}" class="copy">Loading reports...</view>
+  <view wx:elif="{{errorText}}" class="copy">{{errorText}}</view>
+  <view wx:elif="{{!reports.length}}" class="copy">No paid reports yet.</view>
+  <view wx:else>
+    <view class="report-card" wx:for="{{reports}}" wx:key="reportId">
+      <view class="shade-name">{{item.shadeName}} {{item.shadeCode}}</view>
+      <view class="copy">{{item.brand}}</view>
+      <button class="primary-button" data-report-id="{{item.reportId}}" data-test-id="{{item.testId}}" bindtap="viewReport">View report</button>
+      <button class="secondary-button" data-report-id="{{item.reportId}}" bindtap="shareReport">Share one card</button>
+      <button class="secondary-button" data-report-id="{{item.reportId}}" bindtap="hideReport">Hide report</button>
+    </view>
+  </view>
+</view>

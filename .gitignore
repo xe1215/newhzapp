@@ -20,6 +20,7 @@ project.private.config.json
 .env
 .env.*
 !.env.example
+.gh-config/
 
 # Logs
 *.log
@@ -34,4 +35,6 @@ Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
-
+.npm-cache/
+.codegraph/
+skills-lock.json

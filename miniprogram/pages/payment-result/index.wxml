@@ -1,0 +1,8 @@
+<view class="page center">
+  <view class="title">Payment result</view>
+  <view class="copy">Confirm this payment to unlock the report bound to the active preview group.</view>
+  <view class="copy" wx:if="{{paymentStatus === 'paid'}}">Payment confirmed. Your current report is ready to open.</view>
+  <view class="copy" wx:if="{{feedback}}">{{feedback}}</view>
+  <button class="secondary-button" loading="{{confirming}}" bindtap="confirmUnlock">Confirm payment</button>
+  <button class="primary-button" bindtap="viewReport">View report</button>
+</view>

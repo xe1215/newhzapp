@@ -1,0 +1,17 @@
+<view class="page">
+  <view class="title">Free preview</view>
+  <view class="copy">Review the current watermarked set before paying to unlock details.</view>
+  <view class="refresh-count" wx:if="{{remainingRegenerateCount !== null}}">
+    {{remainingRegenerateCount}} free refreshes left
+  </view>
+  <view wx:if="{{loading}}" class="preview-state">Loading preview...</view>
+  <view wx:elif="{{errorText}}" class="preview-state">{{errorText}}</view>
+  <view wx:else class="preview-grid">
+    <view class="preview-card" wx:for="{{previewImages}}" wx:key="fileID">
+      <image class="preview-image" src="{{item.url}}" mode="aspectFill"></image>
+      <view class="shade-name">{{item.title}}</view>
+    </view>
+  </view>
+  <button class="primary-button" loading="{{unlocking}}" bindtap="unlockReport">Unlock report</button>
+  <button class="secondary-button" disabled="{{!canRegeneratePreview}}" bindtap="regeneratePreview">Refresh preview</button>
+</view>

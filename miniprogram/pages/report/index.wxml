@@ -1,0 +1,22 @@
+<view class="page">
+  <view class="title">Full report</view>
+  <view class="copy">Unlocked recommendations will show shades, reasons, cautions, substitutes, and search keywords.</view>
+  <view wx:if="{{loading}}" class="copy">Loading report...</view>
+  <view wx:elif="{{errorText}}" class="copy">{{errorText}}</view>
+  <view wx:else>
+    <view class="preview-grid">
+      <view class="preview-card" wx:for="{{paidImages}}" wx:key="fileID">
+        <image class="preview-image" src="{{item.url}}" mode="aspectFill"></image>
+        <view class="shade-name">{{item.title}}</view>
+      </view>
+    </view>
+    <view class="report-card" wx:for="{{recommendations}}" wx:key="rank">
+      <view class="shade-name">{{item.shadeName}} {{item.shadeCode}}</view>
+      <view class="copy">{{item.brand}} · {{item.colorHex}}</view>
+      <view class="copy">{{item.recommendationReason}}</view>
+      <view class="copy" wx:if="{{item.cautionNote}}">Caution: {{item.cautionNote}}</view>
+      <view class="copy" wx:if="{{item.substitute}}">Substitute: {{item.substitute}}</view>
+    </view>
+  </view>
+  <button class="secondary-button" bindtap="shareCard">Share one card</button>
+</view>

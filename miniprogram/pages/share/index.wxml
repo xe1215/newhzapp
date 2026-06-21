@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="title">Shared card</view>
+  <view class="copy">Shared pages show one result card and a restart entry.</view>
+  <view class="copy" wx:if="{{loading}}">Loading shared card...</view>
+  <view class="copy" wx:if="{{feedback}}">{{feedback}}</view>
+  <view wx:if="{{recommendation}}" class="report-card">
+    <view class="shade-name">{{recommendation.shadeName}} {{recommendation.shadeCode}}</view>
+    <view class="copy">{{recommendation.brand}} · {{recommendation.colorHex}}</view>
+    <view class="copy">{{recommendation.recommendationReason}}</view>
+    <view class="copy" wx:if="{{recommendation.cautionNote}}">Caution: {{recommendation.cautionNote}}</view>
+    <view class="copy" wx:if="{{recommendation.substitute}}">Substitute: {{recommendation.substitute}}</view>
+  </view>
+  <view class="copy" wx:if="{{shareStats}}">Shared visits: {{shareStats.visitCount}}</view>
+  <button class="primary-button" bindtap="restartTest">Restart test</button>
+</view>
