@@ -1,3 +1,17 @@
+function getSnapshotRecommendations(report) {
+  return report.snapshot && Array.isArray(report.snapshot.recommendations)
+    ? report.snapshot.recommendations
+    : [];
+}
+
+function getFirstPaidImage(report) {
+  return Array.isArray(report.paidImages) && report.paidImages.length ? report.paidImages[0] : "";
+}
+
+function getStringField(value, fallback) {
+  return typeof value === "string" && value ? value : fallback;
+}
+
 async function getOwnedReport(params) {
   const { data, runtime, requireOpenId, fail, ok } = params;
   const openid = requireOpenId(runtime);
@@ -24,12 +38,7 @@ async function getOwnedReport(params) {
 }
 
 function getLeadRecommendation(report) {
-  const recommendations =
-    report.snapshot && Array.isArray(report.snapshot.recommendations)
-      ? report.snapshot.recommendations
-      : [];
-
-  return recommendations[0] || {};
+  return getSnapshotRecommendations(report)[0] || {};
 }
 
 function mapReportListItem(report) {
@@ -37,16 +46,15 @@ function mapReportListItem(report) {
 
   return {
     reportId: report._id,
-    testId: report.testId || "",
+    testId: getStringField(report.testId, ""),
     version: Number(report.version || 1),
-    status: report.status || "active",
+    status: getStringField(report.status, "active"),
     locked: !report.unlockedAt,
-    unlockedAt: report.unlockedAt || "",
-    coverImage:
-      Array.isArray(report.paidImages) && report.paidImages.length ? report.paidImages[0] : "",
-    shadeName: lead.shadeName || "",
-    shadeCode: lead.shadeCode || "",
-    brand: lead.brand || "",
+    unlockedAt: getStringField(report.unlockedAt, ""),
+    coverImage: getFirstPaidImage(report),
+    shadeName: getStringField(lead.shadeName, ""),
+    shadeCode: getStringField(lead.shadeCode, ""),
+    brand: getStringField(lead.brand, ""),
   };
 }
 

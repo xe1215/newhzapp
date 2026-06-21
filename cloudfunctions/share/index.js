@@ -19,6 +19,10 @@ cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
 });
 
+function getShareNotFoundError() {
+  return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
+}
+
 async function createShareEntry(event, deps) {
   const data = getEventData(event);
   const runtime = getRuntime(deps);
@@ -74,7 +78,7 @@ async function trackShareVisit(event, deps) {
   const shareEntry = await getShareEntryRecord(data.shareId, runtime);
 
   if (!shareEntry) {
-    return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
+    return getShareNotFoundError();
   }
 
   const stats = await recordShareVisit(shareEntry, visitorOpenid, runtime);
@@ -98,7 +102,7 @@ async function getShareEntry(event, deps) {
   const shareEntry = await getShareEntryRecord(data.shareId, runtime);
 
   if (!shareEntry) {
-    return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
+    return getShareNotFoundError();
   }
 
   return getShareRecommendationPayload(shareEntry, runtime, fail, ok);
@@ -116,7 +120,7 @@ async function loadShareLanding(event, deps) {
   const shareEntry = await getShareEntryRecord(data.shareId, runtime);
 
   if (!shareEntry) {
-    return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
+    return getShareNotFoundError();
   }
 
   const payload = await getShareRecommendationPayload(shareEntry, runtime, fail, ok);

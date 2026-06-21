@@ -2,6 +2,15 @@ const reportService = require("../../services/report");
 const shareService = require("../../services/share");
 const { unwrapCloudCall } = require("../../utils/business");
 
+function getDatasetValue(event, key) {
+  const dataset = event && event.currentTarget ? event.currentTarget.dataset : null;
+  return dataset && dataset[key] ? dataset[key] : "";
+}
+
+function getReportList(result) {
+  return Array.isArray(result.reports) ? result.reports : [];
+}
+
 Page({
   data: {
     loading: true,
@@ -25,7 +34,7 @@ Page({
         const result = unwrapCloudCall(response, "Unable to load reports.");
         this.setData({
           loading: false,
-          reports: Array.isArray(result.reports) ? result.reports : [],
+          reports: getReportList(result),
         });
       })
       .catch((error) => {
@@ -37,12 +46,8 @@ Page({
   },
 
   viewReport(e) {
-    const reportId = e.currentTarget && e.currentTarget.dataset
-      ? e.currentTarget.dataset.reportId
-      : "";
-    const testId = e.currentTarget && e.currentTarget.dataset
-      ? e.currentTarget.dataset.testId
-      : "";
+    const reportId = getDatasetValue(e, "reportId");
+    const testId = getDatasetValue(e, "testId");
 
     if (!reportId || !testId) {
       return;
@@ -54,9 +59,7 @@ Page({
   },
 
   hideReport(e) {
-    const reportId = e.currentTarget && e.currentTarget.dataset
-      ? e.currentTarget.dataset.reportId
-      : "";
+    const reportId = getDatasetValue(e, "reportId");
 
     if (!reportId) {
       return;
@@ -77,9 +80,7 @@ Page({
   },
 
   shareReport(e) {
-    const reportId = e.currentTarget && e.currentTarget.dataset
-      ? e.currentTarget.dataset.reportId
-      : "";
+    const reportId = getDatasetValue(e, "reportId");
 
     if (!reportId) {
       return;

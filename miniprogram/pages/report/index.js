@@ -2,6 +2,10 @@ const reportService = require("../../services/report");
 const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 const { resolveCloudFileList } = require("../../utils/media");
 
+function getRecommendations(snapshot) {
+  return snapshot && Array.isArray(snapshot.recommendations) ? snapshot.recommendations : [];
+}
+
 Page({
   data: {
     testId: "",
@@ -43,10 +47,7 @@ Page({
         const data = unwrapCloudCall(response, "Report is unavailable.");
         return this.resolvePaidImages(data).then((paidImages) => ({
           paidImages,
-          recommendations:
-            data.snapshot && Array.isArray(data.snapshot.recommendations)
-              ? data.snapshot.recommendations
-              : [],
+          recommendations: getRecommendations(data.snapshot),
         }));
       })
       .then((payload) => {

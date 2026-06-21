@@ -1,6 +1,10 @@
 const shareService = require("../../services/share");
 const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 
+function getRestartPath(value) {
+  return value || "/pages/home/index";
+}
+
 Page({
   data: {
     shareId: "",
@@ -37,7 +41,7 @@ Page({
           loading: false,
           recommendation: data.recommendation || null,
           shareStats: data.shareStats || null,
-          restartPath: data.restartPath || "/pages/home/index",
+          restartPath: getRestartPath(data.restartPath),
         });
       })
       .catch((error) => {
@@ -50,7 +54,7 @@ Page({
 
   restartTest() {
     wx.reLaunch({
-      url: this.data.restartPath || "/pages/home/index",
+      url: getRestartPath(this.data.restartPath),
     });
   },
 });

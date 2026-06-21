@@ -1,3 +1,26 @@
+function getSnapshotRecommendations(report) {
+  return report.snapshot && Array.isArray(report.snapshot.recommendations)
+    ? report.snapshot.recommendations
+    : [];
+}
+
+function getNumericField(value) {
+  return Number(value || 0);
+}
+
+function getStringField(value) {
+  return typeof value === "string" ? value : "";
+}
+
+function buildShareStats(shareEntry) {
+  return {
+    visitCount: getNumericField(shareEntry.visitCount),
+    uniqueVisitorCount: getNumericField(shareEntry.uniqueVisitorCount),
+    newTestCount: getNumericField(shareEntry.newTestCount),
+    paidOrderCount: getNumericField(shareEntry.paidOrderCount),
+  };
+}
+
 async function getShareEntryRecord(shareId, runtime) {
   const shareResult = await runtime.db.collection("share_entries").doc(shareId).get();
   const shareEntry = shareResult.data || {};
@@ -10,12 +33,7 @@ async function getShareEntryRecord(shareId, runtime) {
 }
 
 function getRecommendationAtIndex(report, recommendationIndex) {
-  const recommendations =
-    report.snapshot && Array.isArray(report.snapshot.recommendations)
-      ? report.snapshot.recommendations
-      : [];
-
-  return recommendations[recommendationIndex] || null;
+  return getSnapshotRecommendations(report)[recommendationIndex] || null;
 }
 
 async function getShareRecommendationPayload(shareEntry, runtime, fail, ok) {
@@ -38,21 +56,16 @@ async function getShareRecommendationPayload(shareEntry, runtime, fail, ok) {
     reportId: shareEntry.reportId,
     recommendationIndex,
     recommendation,
-    shareCardImage: shareEntry.cardPreviewFileId || "",
-    shareStats: {
-      visitCount: Number(shareEntry.visitCount || 0),
-      uniqueVisitorCount: Number(shareEntry.uniqueVisitorCount || 0),
-      newTestCount: Number(shareEntry.newTestCount || 0),
-      paidOrderCount: Number(shareEntry.paidOrderCount || 0),
-    },
+    shareCardImage: getStringField(shareEntry.cardPreviewFileId),
+    shareStats: buildShareStats(shareEntry),
     restartPath: "/pages/home/index",
   });
 }
 
 async function recordShareVisit(shareEntry, visitorOpenid, runtime) {
   const now = runtime.now().toISOString();
-  const nextVisitCount = Number(shareEntry.visitCount || 0) + 1;
-  const nextUniqueVisitorCount = Number(shareEntry.uniqueVisitorCount || 0) + 1;
+  const nextVisitCount = getNumericField(shareEntry.visitCount) + 1;
+  const nextUniqueVisitorCount = getNumericField(shareEntry.uniqueVisitorCount) + 1;
 
   await runtime.db.collection("share_entries").doc(shareEntry._id).update({
     data: {
@@ -65,11 +78,11 @@ async function recordShareVisit(shareEntry, visitorOpenid, runtime) {
   await runtime.db.collection("events").add({
     data: {
       eventName: "share_visit",
-      openid: visitorOpenid || "",
+      openid: getStringField(visitorOpenid),
       shareId: shareEntry._id,
-      reportId: shareEntry.reportId || "",
+      reportId: getStringField(shareEntry.reportId),
       properties: {
-        recommendationIndex: Number(shareEntry.recommendationIndex || 0),
+        recommendationIndex: getNumericField(shareEntry.recommendationIndex),
       },
       createdAt: now,
     },

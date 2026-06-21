@@ -252,6 +252,48 @@ test("report listMyReports returns only unlocked non-hidden reports for the curr
   assert.ok(!JSON.stringify(result.data.reports).includes("report-locked"));
 });
 
+test("report listMyReports keeps stable fallback fields when report snapshot data is incomplete", async () => {
+  const reportFunction = require("../cloudfunctions/report");
+  const calls = [];
+  const db = createIssue8Db(calls, {
+    reports: {
+      "report-minimal": {
+        _id: "report-minimal",
+        openid: "openid-123",
+        testId: "test-minimal",
+        version: "",
+        status: "",
+        paidImages: [],
+        snapshot: {},
+        unlockedAt: "2026-06-23T01:00:00.000Z",
+        deletedAt: "",
+        createdAt: "2026-06-23T01:00:00.000Z",
+        updatedAt: "2026-06-23T01:00:00.000Z",
+      },
+    },
+  });
+
+  const result = await reportFunction.main(
+    {
+      action: "listMyReports",
+    },
+    {},
+    {
+      db,
+      wxContext: { OPENID: "openid-123" },
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.strictEqual(result.data.reports[0].reportId, "report-minimal");
+  assert.strictEqual(result.data.reports[0].version, 1);
+  assert.strictEqual(result.data.reports[0].status, "active");
+  assert.strictEqual(result.data.reports[0].coverImage, "");
+  assert.strictEqual(result.data.reports[0].shadeName, "");
+  assert.strictEqual(result.data.reports[0].shadeCode, "");
+  assert.strictEqual(result.data.reports[0].brand, "");
+});
+
 test("report getReport records a report_view event and returns only paid assets for unlocked owner reports", async () => {
   const reportFunction = require("../cloudfunctions/report");
   const calls = [];
@@ -484,6 +526,49 @@ test("share getShareEntry returns one recommendation card for the public landing
   assert.strictEqual(result.data.recommendation.shadeName, "Rose Tea");
   assert.strictEqual(result.data.recommendation.brand, "Brand A");
   assert.strictEqual(result.data.shareStats.visitCount, 3);
+  assert.strictEqual(result.data.restartPath, "/pages/home/index");
+});
+
+test("share getShareEntry keeps stable fallback stats and card fields when optional values are missing", async () => {
+  const shareFunction = require("../cloudfunctions/share");
+  const calls = [];
+  const db = createIssue8Db(calls, {
+    share_entries: {
+      "share-minimal": {
+        _id: "share-minimal",
+        sharerOpenid: "openid-123",
+        reportId: "report-paid",
+        recommendationIndex: "",
+        cardPreviewFileId: "",
+        sharePath: "",
+        createdAt: "2026-06-22T10:00:00.000Z",
+        updatedAt: "2026-06-22T10:00:00.000Z",
+      },
+    },
+  });
+
+  const result = await shareFunction.main(
+    {
+      action: "getShareEntry",
+      data: {
+        shareId: "share-minimal",
+      },
+    },
+    {},
+    {
+      db,
+      wxContext: { OPENID: "visitor-openid-004" },
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.strictEqual(result.data.shareId, "share-minimal");
+  assert.strictEqual(result.data.recommendationIndex, 0);
+  assert.strictEqual(result.data.shareCardImage, "");
+  assert.strictEqual(result.data.shareStats.visitCount, 0);
+  assert.strictEqual(result.data.shareStats.uniqueVisitorCount, 0);
+  assert.strictEqual(result.data.shareStats.newTestCount, 0);
+  assert.strictEqual(result.data.shareStats.paidOrderCount, 0);
   assert.strictEqual(result.data.restartPath, "/pages/home/index");
 });
 
