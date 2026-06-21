@@ -1,6 +1,9 @@
 <view class="page">
   <view class="title">Free preview</view>
   <view class="copy">Review the current watermarked set before paying to unlock details.</view>
+  <view class="refresh-count" wx:if="{{remainingRegenerateCount !== null}}">
+    {{remainingRegenerateCount}} free refreshes left
+  </view>
   <view wx:if="{{loading}}" class="preview-state">Loading preview...</view>
   <view wx:elif="{{errorText}}" class="preview-state">{{errorText}}</view>
   <view wx:else class="preview-grid">
@@ -10,5 +13,5 @@
     </view>
   </view>
   <button class="primary-button" bindtap="unlockReport">Unlock report</button>
-  <button class="secondary-button" bindtap="regeneratePreview">Refresh preview</button>
+  <button class="secondary-button" disabled="{{!canRegeneratePreview}}" bindtap="regeneratePreview">Refresh preview</button>
 </view>

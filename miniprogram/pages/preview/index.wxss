@@ -7,6 +7,13 @@
   margin: 36rpx 0;
 }
 
+.refresh-count {
+  margin-top: 16rpx;
+  color: #8b2a4a;
+  font-size: 24rpx;
+  line-height: 34rpx;
+}
+
 .preview-card {
   min-height: 260rpx;
   border-radius: 8rpx;

@@ -56,6 +56,8 @@ function createFakeDb(calls) {
                     openid: "openid-123",
                     status: "active",
                     generationStatus: "success",
+                    previewRegenerateCount: 1,
+                    maxPreviewRegenerateCount: 3,
                     previewImages: [
                       "cloud://env/bucket/one.jpg",
                       "cloud://env/bucket/two.jpg",
@@ -74,6 +76,17 @@ function createFakeDb(calls) {
                         },
                       ],
                     },
+                  },
+                };
+              }
+
+              if (name === "try_on_tests" && id === "test-abc") {
+                return {
+                  data: {
+                    _id: "test-abc",
+                    openid: "openid-123",
+                    previewRegenerateCount: 1,
+                    maxPreviewRegenerateCount: 3,
                   },
                 };
               }
@@ -111,6 +124,9 @@ test("report getPreview returns the current user's generated preview image file 
   assert.strictEqual(result.data.reportId, "report-abc");
   assert.strictEqual(result.data.generationStatus, "success");
   assert.strictEqual(result.data.locked, true);
+  assert.strictEqual(result.data.previewRegenerateCount, 1);
+  assert.strictEqual(result.data.maxPreviewRegenerateCount, 3);
+  assert.strictEqual(result.data.remainingRegenerateCount, 2);
   assert.deepStrictEqual(result.data.previewImages, [
     "cloud://env/bucket/one.jpg",
     "cloud://env/bucket/two.jpg",

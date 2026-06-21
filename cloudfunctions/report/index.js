@@ -57,6 +57,10 @@ async function getPreview(event, deps) {
   }
 
   const previewImages = Array.isArray(report.previewImages) ? report.previewImages : [];
+  const testResult = await runtime.db.collection("try_on_tests").doc(data.testId).get();
+  const testRecord = testResult.data || {};
+  const previewRegenerateCount = Number(testRecord.previewRegenerateCount || 0);
+  const maxPreviewRegenerateCount = Number(testRecord.maxPreviewRegenerateCount || 3);
 
   return ok({
     testId: data.testId,
@@ -65,6 +69,12 @@ async function getPreview(event, deps) {
     generationStatus: report.generationStatus || "",
     locked: !report.unlockedAt,
     previewImages,
+    previewRegenerateCount,
+    maxPreviewRegenerateCount,
+    remainingRegenerateCount: Math.max(
+      0,
+      maxPreviewRegenerateCount - previewRegenerateCount
+    ),
   });
 }
 

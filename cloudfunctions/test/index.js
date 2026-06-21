@@ -1374,8 +1374,14 @@ function toRecommendationSnapshot(item, rank, preferences) {
 }
 
 function rankLipsticks(lipsticks, preferences) {
+  return rankLipsticksExcluding(lipsticks, preferences, []);
+}
+
+function rankLipsticksExcluding(lipsticks, preferences, excludedLipstickIds) {
+  const excluded = new Set((excludedLipstickIds || []).map((id) => String(id)));
   const ranked = lipsticks
     .filter((item) => item.status === "active")
+    .filter((item) => !excluded.has(String(item._id)))
     .filter((item) => includesValue(getBudget(item), preferences.budget))
     .map((item) => ({
       item,
@@ -1417,6 +1423,84 @@ function rankLipsticks(lipsticks, preferences) {
     .map((entry, index) =>
       toRecommendationSnapshot(entry.item, index + 1, preferences)
     );
+}
+
+function collectUsedLipstickIds(report) {
+  const recommendations =
+    report && report.snapshot && Array.isArray(report.snapshot.recommendations)
+      ? report.snapshot.recommendations
+      : [];
+
+  return recommendations
+    .map((item) => item.lipstickId)
+    .filter((id) => id);
+}
+
+async function finishRegeneratedPreview(runtime, params) {
+  const {
+    activeReportId,
+    generated,
+    maxRegenerateCount,
+    newReportId,
+    now,
+    oldReportId,
+    openid,
+    regenerateCount,
+    testId,
+  } = params;
+  const nextRegenerateCount = regenerateCount + 1;
+
+  await runtime.db.collection("reports").doc(newReportId).update({
+    data: {
+      status: "active",
+      generationStatus: "success",
+      generationErrorCode: "",
+      generationErrorMessage: "",
+      generationJob: null,
+      previewImages: generated.generated.previewImages,
+      paidImages: generated.generated.paidImages,
+      updatedAt: now,
+    },
+  });
+
+  await runtime.db.collection("reports").doc(oldReportId).update({
+    data: {
+      status: "replaced",
+      replacedByReportId: activeReportId,
+      updatedAt: now,
+    },
+  });
+
+  await runtime.db.collection("try_on_tests").doc(testId).update({
+    data: {
+      activeReportId,
+      pendingRegenerateReportId: "",
+      previewRegenerateCount: nextRegenerateCount,
+      generationStatus: "success",
+      updatedAt: now,
+    },
+  });
+
+  await recordGenerationEvent(runtime, {
+    type: "preview_regenerate_success",
+    openid,
+    testId,
+    reportId: activeReportId,
+    previousReportId: oldReportId,
+    previewRegenerateCount: nextRegenerateCount,
+    createdAt: now,
+  });
+
+  return ok({
+    testId,
+    reportId: activeReportId,
+    previousReportId: oldReportId,
+    previewRegenerateCount: nextRegenerateCount,
+    maxPreviewRegenerateCount: maxRegenerateCount,
+    remainingRegenerateCount: Math.max(0, maxRegenerateCount - nextRegenerateCount),
+    previewImages: generated.generated.previewImages,
+    paidImages: generated.generated.paidImages,
+  });
 }
 
 function validatePreferences(data) {
@@ -1805,6 +1889,339 @@ async function generateTryOnImages(event, deps) {
   }
 }
 
+async function regeneratePreview(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  if (!data.testId || !data.reportId) {
+    return fail("INVALID_PAYLOAD", "testId and reportId are required");
+  }
+
+  const now = runtime.now().toISOString();
+  const testResult = await runtime.db
+    .collection("try_on_tests")
+    .doc(data.testId)
+    .get();
+  const oldReportResult = await runtime.db
+    .collection("reports")
+    .doc(data.reportId)
+    .get();
+  const testRecord = testResult.data || {};
+  const oldReport = oldReportResult.data || {};
+  const pendingReportId =
+    data.pendingReportId || testRecord.pendingRegenerateReportId || "";
+
+  if (
+    testRecord.openid !== openid ||
+    oldReport.openid !== openid ||
+    oldReport.testId !== data.testId ||
+    testRecord.activeReportId !== data.reportId ||
+    oldReport.status !== "active"
+  ) {
+    return fail("RESOURCE_NOT_FOUND", "Active preview does not belong to current user");
+  }
+
+  const regenerateCount = Number(testRecord.previewRegenerateCount || 0);
+  const maxRegenerateCount = Number(testRecord.maxPreviewRegenerateCount || 3);
+  const config = getProviderConfig(runtime.env);
+
+  if (regenerateCount >= maxRegenerateCount) {
+    await recordGenerationEvent(runtime, {
+      type: "preview_regenerate_limit_reached",
+      openid,
+      testId: data.testId,
+      reportId: data.reportId,
+      createdAt: now,
+    });
+
+    return fail("PREVIEW_REGENERATE_LIMIT_REACHED", "Preview regenerate limit reached", {
+      previewRegenerateCount: regenerateCount,
+      maxPreviewRegenerateCount: maxRegenerateCount,
+      remainingRegenerateCount: 0,
+    });
+  }
+
+  if (pendingReportId) {
+    const pendingReportResult = await runtime.db
+      .collection("reports")
+      .doc(pendingReportId)
+      .get();
+    const pendingReport = pendingReportResult.data || {};
+
+    if (
+      pendingReport.openid !== openid ||
+      pendingReport.testId !== data.testId ||
+      pendingReport.previousReportId !== data.reportId ||
+      pendingReport.status !== "regenerating"
+    ) {
+      return fail("RESOURCE_NOT_FOUND", "Pending preview regenerate report is invalid");
+    }
+
+    const generated = await createImageProvider(config, runtime).generate({
+      testId: data.testId,
+      reportId: pendingReportId,
+      selfieFileId: testRecord.selfieFileId,
+      recommendations:
+        pendingReport.snapshot && Array.isArray(pendingReport.snapshot.recommendations)
+          ? pendingReport.snapshot.recommendations
+          : [],
+      prompt: config.prompt,
+      negativePrompt: config.negativePrompt,
+      timeoutMs: config.timeoutMs,
+      existingJob: pendingReport.generationJob || null,
+    });
+
+    if (!generated.done) {
+      await runtime.db.collection("reports").doc(pendingReportId).update({
+        data: {
+          generationStatus: "generating",
+          generationJob: generated.job,
+          updatedAt: now,
+        },
+      });
+      await runtime.db.collection("try_on_tests").doc(data.testId).update({
+        data: {
+          pendingRegenerateReportId: pendingReportId,
+          generationStatus: "regenerating",
+          updatedAt: now,
+        },
+      });
+
+      return ok({
+        testId: data.testId,
+        reportId: data.reportId,
+        pendingReportId,
+        status: "generating",
+        completedCount: generated.progress.completedCount,
+        totalCount: generated.progress.totalCount,
+        previewRegenerateCount: regenerateCount,
+        maxPreviewRegenerateCount: maxRegenerateCount,
+        remainingRegenerateCount: Math.max(0, maxRegenerateCount - regenerateCount),
+      });
+    }
+
+    return await finishRegeneratedPreview(runtime, {
+      activeReportId: pendingReportId,
+      generated,
+      maxRegenerateCount,
+      newReportId: pendingReportId,
+      now,
+      oldReportId: data.reportId,
+      openid,
+      regenerateCount,
+      testId: data.testId,
+    });
+  }
+
+  const preferences =
+    (oldReport.snapshot && oldReport.snapshot.preferences) ||
+    testRecord.preferences ||
+    null;
+
+  if (!preferences) {
+    return fail("INVALID_REPORT_SNAPSHOT", "Report snapshot preferences are required");
+  }
+
+  const lipsticksResult = await runtime.db
+    .collection("lipsticks")
+    .where({ status: "active" })
+    .get();
+  const usedLipstickIds = collectUsedLipstickIds(oldReport);
+  const recommendations = rankLipsticksExcluding(
+    lipsticksResult.data || [],
+    preferences,
+    usedLipstickIds
+  );
+
+  if (recommendations.length < RECOMMENDATION_LIMIT) {
+    await recordGenerationEvent(runtime, {
+      type: "preview_regenerate_fail",
+      openid,
+      testId: data.testId,
+      reportId: data.reportId,
+      errorCode: "RECOMMENDATION_NOT_ENOUGH",
+      createdAt: now,
+    });
+
+    return fail("RECOMMENDATION_NOT_ENOUGH", "Not enough active lipsticks matched preferences", {
+      recommendations,
+      previewRegenerateCount: regenerateCount,
+      maxPreviewRegenerateCount: maxRegenerateCount,
+    });
+  }
+
+  const nextVersion = Number(oldReport.version || 1) + 1;
+  const newReportId = runtime.id();
+  const provider = createImageProvider(config, runtime);
+  const startedAt = Date.now();
+  let generated;
+
+  try {
+    generated = await provider.generate({
+      testId: data.testId,
+      reportId: newReportId,
+      selfieFileId: testRecord.selfieFileId,
+      recommendations,
+      prompt: config.prompt,
+      negativePrompt: config.negativePrompt,
+      timeoutMs: config.timeoutMs,
+      existingJob: null,
+    });
+  } catch (error) {
+    const durationMs = runtime.durationMs(startedAt);
+    const errorCode = error.code || "IMAGE_PROVIDER_FAILED";
+    const errorMessage = error.message || "Image provider failed";
+
+    await recordProviderRun(runtime, {
+      testId: data.testId,
+      reportId: newReportId,
+      openid,
+      provider: config.provider,
+      model: config.model,
+      promptVersion: config.promptVersion,
+      status: "failed",
+      durationMs,
+      retryIndex: regenerateCount + 1,
+      timeoutMs: config.timeoutMs,
+      errorCode,
+      errorMessage,
+      errorDetails: error.details || null,
+      prompts: [],
+      imageFileIds: [],
+      createdAt: now,
+    });
+    await recordGenerationEvent(runtime, {
+      type: "preview_regenerate_fail",
+      openid,
+      testId: data.testId,
+      reportId: data.reportId,
+      attemptedReportId: newReportId,
+      errorCode,
+      errorMessage,
+      createdAt: now,
+    });
+
+    return fail(errorCode, errorMessage, {
+      retryable: error.retryable !== false,
+      previewRegenerateCount: regenerateCount,
+      maxPreviewRegenerateCount: maxRegenerateCount,
+    });
+  }
+
+  if (!generated.done) {
+    const pendingReportPayload = {
+      _id: newReportId,
+      openid,
+      testId: data.testId,
+      previousReportId: data.reportId,
+      version: nextVersion,
+      status: "regenerating",
+      snapshot: {
+        preferences,
+        recommendations,
+        generatedAt: now,
+      },
+      previewImages: [],
+      paidImages: [],
+      shareCardImages: [],
+      replacedByReportId: "",
+      unlockedAt: "",
+      expiresAt: "",
+      deletedAt: "",
+      createdAt: now,
+      generationStatus: "generating",
+      generationJob: generated.job,
+    };
+
+    await runtime.db.collection("reports").add({
+      data: pendingReportPayload,
+    });
+    await runtime.db.collection("try_on_tests").doc(data.testId).update({
+      data: {
+        pendingRegenerateReportId: newReportId,
+        generationStatus: "regenerating",
+        updatedAt: now,
+      },
+    });
+
+    return ok({
+      testId: data.testId,
+      reportId: data.reportId,
+      pendingReportId: newReportId,
+      status: "generating",
+      completedCount: generated.progress.completedCount,
+      totalCount: generated.progress.totalCount,
+      previewRegenerateCount: regenerateCount,
+      maxPreviewRegenerateCount: maxRegenerateCount,
+      remainingRegenerateCount: Math.max(0, maxRegenerateCount - regenerateCount),
+    });
+  }
+
+  const durationMs = runtime.durationMs(startedAt);
+  await recordProviderRun(runtime, {
+    testId: data.testId,
+    reportId: newReportId,
+    openid,
+    provider: generated.generated.provider,
+    model: generated.generated.model,
+    promptVersion: generated.generated.promptVersion,
+    status: "success",
+    durationMs,
+    retryIndex: regenerateCount + 1,
+    timeoutMs: config.timeoutMs,
+    errorCode: "",
+    errorMessage: "",
+    prompts: generated.generated.prompts,
+    imageFileIds: generated.generated.imageFileIds,
+    createdAt: now,
+  });
+
+  const newReportPayload = {
+    _id: newReportId,
+    openid,
+    testId: data.testId,
+    version: nextVersion,
+    status: "active",
+    snapshot: {
+      preferences,
+      recommendations,
+      generatedAt: now,
+    },
+    shareCardImages: [],
+    replacedByReportId: "",
+    unlockedAt: "",
+    expiresAt: "",
+    deletedAt: "",
+    createdAt: now,
+    generationStatus: "success",
+    generationErrorCode: "",
+    generationErrorMessage: "",
+    previewImages: generated.generated.previewImages,
+    paidImages: generated.generated.paidImages,
+  };
+  const created = await runtime.db.collection("reports").add({
+    data: newReportPayload,
+  });
+  const activeReportId = created._id || newReportId;
+
+  return await finishRegeneratedPreview(runtime, {
+    activeReportId,
+    generated,
+    maxRegenerateCount,
+    newReportId: activeReportId,
+    now,
+    oldReportId: data.reportId,
+    openid,
+    regenerateCount,
+    testId: data.testId,
+  });
+}
+
 async function main(event, context, deps) {
   const action = event && event.action;
 
@@ -1821,7 +2238,7 @@ async function main(event, context, deps) {
   }
 
   if (action === "regeneratePreview") {
-    return ok({ status: "preview_refresh_queued" });
+    return await regeneratePreview(event, deps);
   }
 
   if (action === "generateTryOnImages") {
@@ -1834,6 +2251,7 @@ async function main(event, context, deps) {
 exports.main = main;
 exports.uploadSelfie = uploadSelfie;
 exports.submitPreferences = submitPreferences;
+exports.regeneratePreview = regeneratePreview;
 exports.generateTryOnImages = generateTryOnImages;
 exports.inspectSelfie = inspectSelfie;
 exports.rankLipsticks = rankLipsticks;
