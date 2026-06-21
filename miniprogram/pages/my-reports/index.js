@@ -1,5 +1,6 @@
 const reportService = require("../../services/report");
 const shareService = require("../../services/share");
+const { unwrapCloudCall } = require("../../utils/business");
 
 Page({
   data: {
@@ -21,14 +22,10 @@ Page({
     reportService
       .listMyReports()
       .then((response) => {
-        const result = response.result || {};
-        if (result.code !== 0) {
-          throw new Error(result.message || "Unable to load reports.");
-        }
-
+        const result = unwrapCloudCall(response, "Unable to load reports.");
         this.setData({
           loading: false,
-          reports: result.data && Array.isArray(result.data.reports) ? result.data.reports : [],
+          reports: Array.isArray(result.reports) ? result.reports : [],
         });
       })
       .catch((error) => {
@@ -94,11 +91,9 @@ Page({
         recommendationIndex: 0,
       })
       .then((response) => {
-        const result = response.result || {};
-        const data = result.data || {};
-
-        if (result.code !== 0 || !data.shareId) {
-          throw new Error(result.message || "Unable to create share entry.");
+        const data = unwrapCloudCall(response, "Unable to create share entry.");
+        if (!data.shareId) {
+          throw new Error("Unable to create share entry.");
         }
 
         wx.navigateTo({

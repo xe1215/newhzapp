@@ -1,6 +1,8 @@
 const reportService = require("../../services/report");
 const paymentService = require("../../services/payment");
 const testService = require("../../services/test");
+const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
+const { resolveCloudFileList } = require("../../utils/media");
 
 Page({
   data: {
@@ -15,8 +17,8 @@ Page({
   },
 
   onLoad(query) {
-    const testId = query && query.testId ? query.testId : "";
-    const reportId = query && query.reportId ? query.reportId : "";
+    const testId = getQueryValue(query, "testId");
+    const reportId = getQueryValue(query, "reportId");
 
     this.setData({
       testId,
@@ -45,12 +47,7 @@ Page({
         reportId: this.data.reportId,
       })
       .then((response) => {
-        const result = response.result || {};
-        if (result.code !== 0) {
-          throw new Error(result.message || "Preview is not ready.");
-        }
-
-        const data = result.data || {};
+        const data = unwrapCloudCall(response, "Preview is not ready.");
         this.setData({
           remainingRegenerateCount:
             typeof data.remainingRegenerateCount === "number"
@@ -81,27 +78,11 @@ Page({
   },
 
   resolvePreviewImages(report) {
-    const fileIDs = Array.isArray(report.previewImages) ? report.previewImages : [];
-
-    if (!fileIDs.length) {
-      return Promise.resolve([]);
-    }
-
-    return wx.cloud
-      .getTempFileURL({
-        fileList: fileIDs,
+    return resolveCloudFileList(report.previewImages, "Look", (fileList) =>
+      wx.cloud.getTempFileURL({
+        fileList,
       })
-      .then((res) => {
-        const fileList = res.fileList || [];
-        return fileIDs.map((fileID, index) => {
-          const file = fileList[index] || {};
-          return {
-            fileID,
-            url: file.tempFileURL || file.fileID || fileID,
-            title: `Look ${index + 1}`,
-          };
-        });
-      });
+    );
   },
 
   unlockReport() {
@@ -122,12 +103,7 @@ Page({
         testId: this.data.testId,
       })
       .then((response) => {
-        const result = response.result || {};
-        if (result.code !== 0) {
-          throw new Error(result.message || "Unable to create payment order.");
-        }
-
-        const order = result.data || {};
+        const order = unwrapCloudCall(response, "Unable to create payment order.");
         wx.navigateTo({
           url:
             `/pages/payment-result/index?orderId=${order.orderId}` +
@@ -173,12 +149,7 @@ Page({
         reportId: this.data.reportId,
       })
       .then((response) => {
-        const result = response.result || {};
-        if (result.code !== 0) {
-          throw new Error(result.message || "Preview refresh failed.");
-        }
-
-        const data = result.data || {};
+        const data = unwrapCloudCall(response, "Preview refresh failed.");
         if (data.status === "generating") {
           this.setData({
             loading: false,

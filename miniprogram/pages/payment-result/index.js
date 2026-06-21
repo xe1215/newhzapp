@@ -1,4 +1,5 @@
 const paymentService = require("../../services/payment");
+const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 
 Page({
   data: {
@@ -12,9 +13,9 @@ Page({
 
   onLoad(query) {
     this.setData({
-      orderId: query && query.orderId ? query.orderId : "",
-      testId: query && query.testId ? query.testId : "",
-      reportId: query && query.reportId ? query.reportId : "",
+      orderId: getQueryValue(query, "orderId"),
+      testId: getQueryValue(query, "testId"),
+      reportId: getQueryValue(query, "reportId"),
     });
   },
 
@@ -37,12 +38,7 @@ Page({
         transactionId: `mock-${Date.now()}`,
       })
       .then((response) => {
-        const result = response.result || {};
-        if (result.code !== 0) {
-          throw new Error(result.message || "Payment confirmation failed.");
-        }
-
-        const data = result.data || {};
+        const data = unwrapCloudCall(response, "Payment confirmation failed.");
         this.setData({
           paymentStatus: data.paymentStatus || "paid",
           reportId: data.reportId || this.data.reportId,

@@ -1,5 +1,6 @@
 const testService = require("../../services/test");
 const { ERROR_MESSAGES } = require("../../utils/errors");
+const { unwrapCloudCall } = require("../../utils/business");
 
 const SELFIE_REJECTION_REASON_MESSAGES = {
   content_unsafe: "This photo cannot be used because it did not pass content safety checks.",
@@ -74,7 +75,7 @@ Page({
         });
       })
       .then((response) => {
-        const result = response.result || {};
+        const result = response && response.result ? response.result : {};
         if (result.code !== 0) {
           const message =
             result.code === "SELFIE_REJECTED"
@@ -87,8 +88,9 @@ Page({
           return;
         }
 
+        const data = unwrapCloudCall(response, ERROR_MESSAGES.UNKNOWN);
         wx.navigateTo({
-          url: `/pages/preferences/index?testId=${result.data.testId}`,
+          url: `/pages/preferences/index?testId=${data.testId}`,
         });
       })
       .catch(() => {

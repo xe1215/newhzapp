@@ -1,4 +1,5 @@
 const shareService = require("../../services/share");
+const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 
 Page({
   data: {
@@ -11,7 +12,7 @@ Page({
   },
 
   onLoad(query) {
-    const shareId = query && query.shareId ? query.shareId : "";
+    const shareId = getQueryValue(query, "shareId");
 
     this.setData({
       shareId,
@@ -26,16 +27,11 @@ Page({
     }
 
     shareService
-      .getShareEntry({
+      .loadShareLanding({
         shareId,
       })
       .then((response) => {
-        const result = response.result || {};
-        if (result.code !== 0) {
-          throw new Error(result.message || "Shared card is unavailable.");
-        }
-
-        const data = result.data || {};
+        const data = unwrapCloudCall(response, "Shared card is unavailable.");
 
         this.setData({
           loading: false,
@@ -43,15 +39,11 @@ Page({
           shareStats: data.shareStats || null,
           restartPath: data.restartPath || "/pages/home/index",
         });
-
-        return shareService.trackShareVisit({
-          shareId,
-        });
       })
-      .catch(() => {
+      .catch((error) => {
         this.setData({
           loading: false,
-          feedback: "Shared visit tracking is temporarily unavailable.",
+          feedback: error.message || "Shared card is unavailable.",
         });
       });
   },

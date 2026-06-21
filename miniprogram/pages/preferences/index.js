@@ -1,5 +1,6 @@
 const testService = require("../../services/test");
 const { ERROR_MESSAGES } = require("../../utils/errors");
+const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 
 Page({
   data: {
@@ -36,7 +37,7 @@ Page({
 
   onLoad(query) {
     this.setData({
-      testId: query && query.testId ? query.testId : "",
+      testId: getQueryValue(query, "testId"),
     });
   },
 
@@ -87,27 +88,16 @@ Page({
         },
       })
       .then((response) => {
-        const result = response.result || {};
-
-        if (result.code !== 0) {
-          this.setData({
-            submitting: false,
-            feedback:
-              result.message ||
-              ERROR_MESSAGES[result.code] ||
-              ERROR_MESSAGES.UNKNOWN,
-          });
-          return;
-        }
+        const data = unwrapCloudCall(response, ERROR_MESSAGES.UNKNOWN);
 
         wx.navigateTo({
-          url: `/pages/generating/index?testId=${result.data.testId}&reportId=${result.data.reportId}`,
+          url: `/pages/generating/index?testId=${data.testId}&reportId=${data.reportId}`,
         });
       })
-      .catch(() => {
+      .catch((error) => {
         this.setData({
           submitting: false,
-          feedback: ERROR_MESSAGES.UNKNOWN,
+          feedback: error.message || ERROR_MESSAGES.UNKNOWN,
         });
       });
   },

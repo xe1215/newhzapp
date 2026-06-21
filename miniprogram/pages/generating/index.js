@@ -1,4 +1,5 @@
 const testService = require("../../services/test");
+const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 const POLL_INTERVAL_MS = 3000;
 
 Page({
@@ -13,8 +14,8 @@ Page({
   pollTimer: null,
 
   onLoad(query) {
-    const testId = query && query.testId ? query.testId : "";
-    const reportId = query && query.reportId ? query.reportId : "";
+    const testId = getQueryValue(query, "testId");
+    const reportId = getQueryValue(query, "reportId");
 
     this.setData({
       testId,
@@ -48,19 +49,11 @@ Page({
         retryIndex: this.data.retryIndex,
       })
       .then((response) => {
-        const result = response.result || {};
+        const data = unwrapCloudCall(response, "Generation failed. Please retry.");
 
-        if (result.code !== 0) {
-          this.setData({
-            generationFinished: true,
-            statusText: result.message || "Generation failed. Please retry.",
-          });
-          return;
-        }
-
-        if (result.data && result.data.status === "generating") {
-          const completedCount = Number(result.data.completedCount || 0);
-          const totalCount = Number(result.data.totalCount || 3);
+        if (data.status === "generating") {
+          const completedCount = Number(data.completedCount || 0);
+          const totalCount = Number(data.totalCount || 3);
           this.setData({
             statusText: `Generating try-on images... ${completedCount}/${totalCount}`,
             retryIndex: this.data.retryIndex + 1,
@@ -70,16 +63,16 @@ Page({
         }
 
         wx.redirectTo({
-          url: `/pages/preview/index?testId=${result.data.testId}&reportId=${result.data.reportId}`,
+          url: `/pages/preview/index?testId=${data.testId}&reportId=${data.reportId}`,
         });
         this.setData({
           generationFinished: true,
         });
       })
-      .catch(() => {
+      .catch((error) => {
         this.setData({
           generationFinished: true,
-          statusText: "Generation failed. Please retry.",
+          statusText: error.message || "Generation failed. Please retry.",
         });
       });
   },

@@ -345,11 +345,12 @@ test("my reports and share pages use report/share services instead of static pla
   assert.match(reportService, /callBusinessFunction\("report", "hideReport"/);
   assert.match(shareService, /function createShareEntry/);
   assert.match(shareService, /function trackShareVisit/);
+  assert.match(shareService, /function loadShareLanding/);
   assert.match(myReportsPage, /reportService\s*\.\s*listMyReports\s*\(/);
   assert.match(myReportsPage, /hideReport\s*\(/);
   assert.match(myReportsTemplate, /wx:for="\{\{reports\}\}"/);
   assert.match(myReportsTemplate, /Share one card/);
-  assert.match(sharePage, /shareService\s*\.\s*trackShareVisit\s*\(/);
+  assert.match(sharePage, /shareService\s*\.\s*loadShareLanding\s*\(/);
   assert.match(shareTemplate, /restart/i);
 });
 
@@ -486,14 +487,71 @@ test("share getShareEntry returns one recommendation card for the public landing
   assert.strictEqual(result.data.restartPath, "/pages/home/index");
 });
 
+test("share loadShareLanding returns public content and records a visit in one call", async () => {
+  const shareFunction = require("../cloudfunctions/share");
+  const calls = [];
+  const db = createIssue8Db(calls, {
+    share_entries: {
+      "share-landing-2": {
+        _id: "share-landing-2",
+        sharerOpenid: "openid-123",
+        reportId: "report-paid",
+        recommendationIndex: 0,
+        cardPreviewFileId: "cloud://share/card-report-paid-0.jpg",
+        sharePath: "/pages/share/index?shareId=share-landing-2",
+        visitCount: 5,
+        uniqueVisitorCount: 4,
+        newTestCount: 1,
+        paidOrderCount: 2,
+        createdAt: "2026-06-22T10:00:00.000Z",
+        updatedAt: "2026-06-22T10:05:00.000Z",
+      },
+    },
+  });
+
+  const result = await shareFunction.main(
+    {
+      action: "loadShareLanding",
+      data: {
+        shareId: "share-landing-2",
+      },
+    },
+    {},
+    {
+      db,
+      wxContext: { OPENID: "visitor-openid-003" },
+      now: () => new Date("2026-06-22T10:06:00.000Z"),
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.strictEqual(result.data.shareId, "share-landing-2");
+  assert.strictEqual(result.data.recommendation.shadeName, "Rose Tea");
+  assert.strictEqual(result.data.shareStats.visitCount, 6);
+  assert.strictEqual(result.data.shareStats.uniqueVisitorCount, 5);
+  assert.strictEqual(db.state.share_entries["share-landing-2"].visitCount, 6);
+  assert.strictEqual(db.state.share_entries["share-landing-2"].uniqueVisitorCount, 5);
+
+  const visitEvent = calls.find(
+    (call) =>
+      call[0] === "add" &&
+      call[1] === "events" &&
+      call[2].data.eventName === "share_visit" &&
+      call[2].data.shareId === "share-landing-2"
+  );
+  assert.ok(visitEvent, "share landing should record one visit event");
+});
+
 test("share page loads public share entry content instead of showing only a placeholder", () => {
   const shareService = readText("miniprogram/services/share.js");
   const sharePage = readText("miniprogram/pages/share/index.js");
   const shareTemplate = readText("miniprogram/pages/share/index.wxml");
 
   assert.match(shareService, /function getShareEntry/);
+  assert.match(shareService, /function loadShareLanding/);
   assert.match(shareService, /callBusinessFunction\("share", "getShareEntry"/);
-  assert.match(sharePage, /shareService\s*\.\s*getShareEntry\s*\(/);
+  assert.match(shareService, /callBusinessFunction\("share", "loadShareLanding"/);
+  assert.match(sharePage, /shareService\s*\.\s*loadShareLanding\s*\(/);
   assert.match(shareTemplate, /recommendation\.shadeName/);
   assert.match(shareTemplate, /recommendation\.recommendationReason/);
   assert.match(shareTemplate, /restart/i);

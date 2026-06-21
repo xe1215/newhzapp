@@ -1,44 +1,31 @@
-const cloud = require("wx-server-sdk");
+const {
+  cloud,
+  getRuntime,
+  ok,
+  fail,
+  unsupported,
+  getEventData,
+  getOpenId,
+  requireOpenId,
+} = require("./share-core");
+const {
+  getShareEntryRecord,
+  getShareRecommendationPayload,
+  recordShareVisit,
+  createShareEntryRecord,
+} = require("./share-records");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
 });
 
-function ok(data) {
-  return {
-    code: 0,
-    message: "ok",
-    data: data || null,
-  };
-}
-
-function fail(code, message, data) {
-  return {
-    code: code || -1,
-    message: message || "error",
-    data: data || null,
-  };
-}
-
-function unsupported(action) {
-  return fail("INVALID_ACTION", `Unsupported action: ${action || "unknown"}`);
-}
-
-function getRuntime(deps) {
-  return {
-    db: deps && deps.db ? deps.db : cloud.database(),
-    wxContext: deps && deps.wxContext ? deps.wxContext : cloud.getWXContext(),
-    now: deps && deps.now ? deps.now : () => new Date(),
-  };
-}
-
 async function createShareEntry(event, deps) {
-  const data = (event && event.data) || {};
+  const data = getEventData(event);
   const runtime = getRuntime(deps);
-  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+  const openid = requireOpenId(runtime);
 
-  if (!openid) {
-    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  if (typeof openid !== "string") {
+    return openid;
   }
 
   if (!data.reportId && data.reportId !== "") {
@@ -59,137 +46,95 @@ async function createShareEntry(event, deps) {
 
   const now = runtime.now().toISOString();
   const sharePath = "/pages/share/index";
-  const shareEntry = {
-    sharerOpenid: openid,
+  const created = await createShareEntryRecord(runtime, {
+    openid,
     reportId: data.reportId,
     recommendationIndex,
-    cardPreviewFileId:
-      Array.isArray(report.shareCardImages) && report.shareCardImages[recommendationIndex]
-        ? report.shareCardImages[recommendationIndex]
-        : "",
+    report,
+    now,
     sharePath,
-    visitCount: 0,
-    uniqueVisitorCount: 0,
-    newTestCount: 0,
-    paidOrderCount: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  const created = await runtime.db.collection("share_entries").add({
-    data: shareEntry,
-  });
-  const shareId = created._id;
-  const fullSharePath = `${sharePath}?shareId=${shareId}`;
-
-  await runtime.db.collection("share_entries").doc(shareId).update({
-    data: {
-      sharePath: fullSharePath,
-      updatedAt: now,
-    },
   });
 
   return ok({
-    shareId,
-    sharePath: fullSharePath,
+    shareId: created.shareId,
+    sharePath: created.sharePath,
     recommendationIndex,
   });
 }
 
 async function trackShareVisit(event, deps) {
-  const data = (event && event.data) || {};
+  const data = getEventData(event);
   const runtime = getRuntime(deps);
-  const visitorOpenid = runtime.wxContext && runtime.wxContext.OPENID;
+  const visitorOpenid = getOpenId(runtime);
 
   if (!data.shareId) {
     return fail("INVALID_PAYLOAD", "shareId is required");
   }
 
-  const shareResult = await runtime.db.collection("share_entries").doc(data.shareId).get();
-  const shareEntry = shareResult.data || {};
+  const shareEntry = await getShareEntryRecord(data.shareId, runtime);
 
-  if (!shareEntry._id) {
+  if (!shareEntry) {
     return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
   }
 
-  const now = runtime.now().toISOString();
-  const nextVisitCount = Number(shareEntry.visitCount || 0) + 1;
-  const nextUniqueVisitorCount = Number(shareEntry.uniqueVisitorCount || 0) + 1;
-
-  await runtime.db.collection("share_entries").doc(data.shareId).update({
-    data: {
-      visitCount: nextVisitCount,
-      uniqueVisitorCount: nextUniqueVisitorCount,
-      updatedAt: now,
-    },
-  });
-
-  await runtime.db.collection("events").add({
-    data: {
-      eventName: "share_visit",
-      openid: visitorOpenid || "",
-      shareId: data.shareId,
-      reportId: shareEntry.reportId || "",
-      properties: {
-        recommendationIndex: Number(shareEntry.recommendationIndex || 0),
-      },
-      createdAt: now,
-    },
-  });
+  const stats = await recordShareVisit(shareEntry, visitorOpenid, runtime);
 
   return ok({
     tracked: true,
     shareId: data.shareId,
-    visitCount: nextVisitCount,
-    uniqueVisitorCount: nextUniqueVisitorCount,
+    visitCount: stats.visitCount,
+    uniqueVisitorCount: stats.uniqueVisitorCount,
   });
 }
 
 async function getShareEntry(event, deps) {
-  const data = (event && event.data) || {};
+  const data = getEventData(event);
   const runtime = getRuntime(deps);
 
   if (!data.shareId) {
     return fail("INVALID_PAYLOAD", "shareId is required");
   }
 
-  const shareResult = await runtime.db.collection("share_entries").doc(data.shareId).get();
-  const shareEntry = shareResult.data || {};
+  const shareEntry = await getShareEntryRecord(data.shareId, runtime);
 
-  if (!shareEntry._id) {
+  if (!shareEntry) {
     return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
   }
 
-  const reportResult = await runtime.db.collection("reports").doc(shareEntry.reportId).get();
-  const report = reportResult.data || {};
+  return getShareRecommendationPayload(shareEntry, runtime, fail, ok);
+}
 
-  if (!report._id || report.deletedAt) {
-    return fail("RESOURCE_NOT_FOUND", "Shared report is unavailable");
+async function loadShareLanding(event, deps) {
+  const data = getEventData(event);
+  const runtime = getRuntime(deps);
+  const visitorOpenid = getOpenId(runtime);
+
+  if (!data.shareId) {
+    return fail("INVALID_PAYLOAD", "shareId is required");
   }
 
-  const recommendations =
-    report.snapshot && Array.isArray(report.snapshot.recommendations)
-      ? report.snapshot.recommendations
-      : [];
-  const recommendation = recommendations[Number(shareEntry.recommendationIndex || 0)] || null;
+  const shareEntry = await getShareEntryRecord(data.shareId, runtime);
 
-  if (!recommendation) {
-    return fail("RESOURCE_NOT_FOUND", "Shared recommendation is unavailable");
+  if (!shareEntry) {
+    return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
   }
+
+  const payload = await getShareRecommendationPayload(shareEntry, runtime, fail, ok);
+
+  if (payload.code !== 0) {
+    return payload;
+  }
+
+  const stats = await recordShareVisit(shareEntry, visitorOpenid, runtime);
 
   return ok({
-    shareId: shareEntry._id,
-    reportId: shareEntry.reportId,
-    recommendationIndex: Number(shareEntry.recommendationIndex || 0),
-    recommendation,
-    shareCardImage: shareEntry.cardPreviewFileId || "",
+    ...payload.data,
     shareStats: {
-      visitCount: Number(shareEntry.visitCount || 0),
-      uniqueVisitorCount: Number(shareEntry.uniqueVisitorCount || 0),
-      newTestCount: Number(shareEntry.newTestCount || 0),
-      paidOrderCount: Number(shareEntry.paidOrderCount || 0),
+      ...payload.data.shareStats,
+      visitCount: stats.visitCount,
+      uniqueVisitorCount: stats.uniqueVisitorCount,
     },
-    restartPath: "/pages/home/index",
+    tracked: true,
   });
 }
 
@@ -208,10 +153,15 @@ async function main(event, context, deps) {
     return await getShareEntry(event, deps);
   }
 
+  if (action === "loadShareLanding") {
+    return await loadShareLanding(event, deps);
+  }
+
   return unsupported(action);
 }
 
 exports.main = main;
 exports.createShareEntry = createShareEntry;
-exports.trackShareVisit = trackShareVisit;
 exports.getShareEntry = getShareEntry;
+exports.loadShareLanding = loadShareLanding;
+exports.trackShareVisit = trackShareVisit;

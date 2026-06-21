@@ -1,4 +1,6 @@
 const reportService = require("../../services/report");
+const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
+const { resolveCloudFileList } = require("../../utils/media");
 
 Page({
   data: {
@@ -12,8 +14,8 @@ Page({
 
   onLoad(query) {
     this.setData({
-      testId: query && query.testId ? query.testId : "",
-      reportId: query && query.reportId ? query.reportId : "",
+      testId: getQueryValue(query, "testId"),
+      reportId: getQueryValue(query, "reportId"),
     });
     this.loadReport();
   },
@@ -38,12 +40,7 @@ Page({
         reportId: this.data.reportId,
       })
       .then((response) => {
-        const result = response.result || {};
-        if (result.code !== 0) {
-          throw new Error(result.message || "Report is unavailable.");
-        }
-
-        const data = result.data || {};
+        const data = unwrapCloudCall(response, "Report is unavailable.");
         return this.resolvePaidImages(data).then((paidImages) => ({
           paidImages,
           recommendations:
@@ -68,27 +65,11 @@ Page({
   },
 
   resolvePaidImages(report) {
-    const fileIDs = Array.isArray(report.paidImages) ? report.paidImages : [];
-
-    if (!fileIDs.length) {
-      return Promise.resolve([]);
-    }
-
-    return wx.cloud
-      .getTempFileURL({
-        fileList: fileIDs,
+    return resolveCloudFileList(report.paidImages, "Look", (fileList) =>
+      wx.cloud.getTempFileURL({
+        fileList,
       })
-      .then((res) => {
-        const fileList = res.fileList || [];
-        return fileIDs.map((fileID, index) => {
-          const file = fileList[index] || {};
-          return {
-            fileID,
-            url: file.tempFileURL || file.fileID || fileID,
-            title: `Look ${index + 1}`,
-          };
-        });
-      });
+    );
   },
 
   shareCard() {
