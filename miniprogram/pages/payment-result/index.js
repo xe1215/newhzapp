@@ -8,6 +8,7 @@ Page({
     reportId: "",
     confirming: false,
     paymentStatus: "pending",
+    canViewReport: false,
     feedback: "",
   },
 
@@ -41,6 +42,7 @@ Page({
         const data = unwrapCloudCall(response, "Payment confirmation failed.");
         this.setData({
           paymentStatus: data.paymentStatus || "paid",
+          canViewReport: Boolean(data.canViewReport),
           reportId: data.reportId || this.data.reportId,
           feedback: data.canViewReport
             ? ""
@@ -60,6 +62,13 @@ Page({
   },
 
   viewReport() {
+    if (!this.data.canViewReport) {
+      this.setData({
+        feedback: "Please confirm payment before opening the full report.",
+      });
+      return;
+    }
+
     if (!this.data.testId || !this.data.reportId) {
       this.setData({
         feedback: "Missing report information. Please return and try again.",

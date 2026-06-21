@@ -556,3 +556,37 @@ test("share page loads public share entry content instead of showing only a plac
   assert.match(shareTemplate, /recommendation\.recommendationReason/);
   assert.match(shareTemplate, /restart/i);
 });
+
+test("unwrapCloudCall hides raw cloud stack traces behind the provided fallback message", () => {
+  const { unwrapCloudCall } = require("../miniprogram/utils/business");
+
+  assert.throws(
+    () =>
+      unwrapCloudCall(
+        {
+          result: {
+            code: -1,
+            message:
+              "cloud.callFunction:fail Error: errCode: -504002 functions execute fail | errMsg: Error: collection.add:fail -502005 database collection not exists. [ResourceNotFound] Db or Table not exist: orders.",
+          },
+        },
+        "Unable to create payment order."
+      ),
+    /Unable to create payment order\./
+  );
+});
+
+test("unwrapCloudCall keeps short user-friendly backend messages", () => {
+  const { unwrapCloudCall } = require("../miniprogram/utils/business");
+
+  assert.throws(
+    () =>
+      unwrapCloudCall({
+        result: {
+          code: -1,
+          message: "Please complete your profile first.",
+        },
+      }),
+    /Please complete your profile first\./
+  );
+});

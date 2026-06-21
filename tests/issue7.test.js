@@ -436,3 +436,14 @@ test("report page and payment pages use business services instead of hard-coded 
   assert.match(reportService, /function getReport/);
   assert.match(reportService, /callBusinessFunction\("report", "getReport"/);
 });
+
+test("payment result page keeps view report disabled until payment is confirmed", () => {
+  const paymentResultPage = readText("miniprogram/pages/payment-result/index.js");
+  const paymentResultTemplate = readText("miniprogram/pages/payment-result/index.wxml");
+
+  assert.match(paymentResultPage, /canViewReport/);
+  assert.match(paymentResultPage, /paymentStatus:\s*"pending"/);
+  assert.match(paymentResultPage, /data\.canViewReport/);
+  assert.match(paymentResultPage, /Please confirm payment before opening the full report\./);
+  assert.match(paymentResultTemplate, /disabled="\{\{!canViewReport\}\}"/);
+});

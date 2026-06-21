@@ -4,5 +4,5 @@
   <view class="copy" wx:if="{{paymentStatus === 'paid'}}">Payment confirmed. Your current report is ready to open.</view>
   <view class="copy" wx:if="{{feedback}}">{{feedback}}</view>
   <button class="secondary-button" loading="{{confirming}}" bindtap="confirmUnlock">Confirm payment</button>
-  <button class="primary-button" bindtap="viewReport">View report</button>
+  <button class="primary-button" bindtap="viewReport" disabled="{{!canViewReport}}">View report</button>
 </view>
