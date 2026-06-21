@@ -439,3 +439,62 @@ test("share trackShareVisit increments visit counters and records a share_visit 
   assert.strictEqual(visitEvent[2].data.shareId, "share-1");
   assert.strictEqual(visitEvent[2].data.reportId, "report-paid");
 });
+
+test("share getShareEntry returns one recommendation card for the public landing page", async () => {
+  const shareFunction = require("../cloudfunctions/share");
+  const calls = [];
+  const db = createIssue8Db(calls, {
+    share_entries: {
+      "share-landing": {
+        _id: "share-landing",
+        sharerOpenid: "openid-123",
+        reportId: "report-paid",
+        recommendationIndex: 0,
+        cardPreviewFileId: "cloud://share/card-report-paid-0.jpg",
+        sharePath: "/pages/share/index?shareId=share-landing",
+        visitCount: 3,
+        uniqueVisitorCount: 2,
+        newTestCount: 1,
+        paidOrderCount: 1,
+        createdAt: "2026-06-22T10:00:00.000Z",
+        updatedAt: "2026-06-22T10:05:00.000Z",
+      },
+    },
+  });
+
+  const result = await shareFunction.main(
+    {
+      action: "getShareEntry",
+      data: {
+        shareId: "share-landing",
+      },
+    },
+    {},
+    {
+      db,
+      wxContext: { OPENID: "visitor-openid-002" },
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.strictEqual(result.data.shareId, "share-landing");
+  assert.strictEqual(result.data.reportId, "report-paid");
+  assert.strictEqual(result.data.recommendation.rank, 1);
+  assert.strictEqual(result.data.recommendation.shadeName, "Rose Tea");
+  assert.strictEqual(result.data.recommendation.brand, "Brand A");
+  assert.strictEqual(result.data.shareStats.visitCount, 3);
+  assert.strictEqual(result.data.restartPath, "/pages/home/index");
+});
+
+test("share page loads public share entry content instead of showing only a placeholder", () => {
+  const shareService = readText("miniprogram/services/share.js");
+  const sharePage = readText("miniprogram/pages/share/index.js");
+  const shareTemplate = readText("miniprogram/pages/share/index.wxml");
+
+  assert.match(shareService, /function getShareEntry/);
+  assert.match(shareService, /callBusinessFunction\("share", "getShareEntry"/);
+  assert.match(sharePage, /shareService\s*\.\s*getShareEntry\s*\(/);
+  assert.match(shareTemplate, /recommendation\.shadeName/);
+  assert.match(shareTemplate, /recommendation\.recommendationReason/);
+  assert.match(shareTemplate, /restart/i);
+});

@@ -145,6 +145,54 @@ async function trackShareVisit(event, deps) {
   });
 }
 
+async function getShareEntry(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+
+  if (!data.shareId) {
+    return fail("INVALID_PAYLOAD", "shareId is required");
+  }
+
+  const shareResult = await runtime.db.collection("share_entries").doc(data.shareId).get();
+  const shareEntry = shareResult.data || {};
+
+  if (!shareEntry._id) {
+    return fail("RESOURCE_NOT_FOUND", "Share entry does not exist");
+  }
+
+  const reportResult = await runtime.db.collection("reports").doc(shareEntry.reportId).get();
+  const report = reportResult.data || {};
+
+  if (!report._id || report.deletedAt) {
+    return fail("RESOURCE_NOT_FOUND", "Shared report is unavailable");
+  }
+
+  const recommendations =
+    report.snapshot && Array.isArray(report.snapshot.recommendations)
+      ? report.snapshot.recommendations
+      : [];
+  const recommendation = recommendations[Number(shareEntry.recommendationIndex || 0)] || null;
+
+  if (!recommendation) {
+    return fail("RESOURCE_NOT_FOUND", "Shared recommendation is unavailable");
+  }
+
+  return ok({
+    shareId: shareEntry._id,
+    reportId: shareEntry.reportId,
+    recommendationIndex: Number(shareEntry.recommendationIndex || 0),
+    recommendation,
+    shareCardImage: shareEntry.cardPreviewFileId || "",
+    shareStats: {
+      visitCount: Number(shareEntry.visitCount || 0),
+      uniqueVisitorCount: Number(shareEntry.uniqueVisitorCount || 0),
+      newTestCount: Number(shareEntry.newTestCount || 0),
+      paidOrderCount: Number(shareEntry.paidOrderCount || 0),
+    },
+    restartPath: "/pages/home/index",
+  });
+}
+
 async function main(event, context, deps) {
   const action = event && event.action;
 
@@ -156,9 +204,14 @@ async function main(event, context, deps) {
     return await trackShareVisit(event, deps);
   }
 
+  if (action === "getShareEntry") {
+    return await getShareEntry(event, deps);
+  }
+
   return unsupported(action);
 }
 
 exports.main = main;
 exports.createShareEntry = createShareEntry;
 exports.trackShareVisit = trackShareVisit;
+exports.getShareEntry = getShareEntry;
