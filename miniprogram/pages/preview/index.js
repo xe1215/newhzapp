@@ -1,4 +1,5 @@
 const reportService = require("../../services/report");
+const paymentService = require("../../services/payment");
 const testService = require("../../services/test");
 
 Page({
@@ -10,6 +11,7 @@ Page({
     previewImages: [],
     remainingRegenerateCount: null,
     canRegeneratePreview: true,
+    unlocking: false,
   },
 
   onLoad(query) {
@@ -103,7 +105,46 @@ Page({
   },
 
   unlockReport() {
-    wx.navigateTo({ url: "/pages/payment-result/index" });
+    if (!this.data.testId) {
+      this.setData({
+        errorText: "Missing test information. Please generate again.",
+      });
+      return;
+    }
+
+    this.setData({
+      unlocking: true,
+      errorText: "",
+    });
+
+    paymentService
+      .createReportOrder({
+        testId: this.data.testId,
+      })
+      .then((response) => {
+        const result = response.result || {};
+        if (result.code !== 0) {
+          throw new Error(result.message || "Unable to create payment order.");
+        }
+
+        const order = result.data || {};
+        wx.navigateTo({
+          url:
+            `/pages/payment-result/index?orderId=${order.orderId}` +
+            `&testId=${this.data.testId}` +
+            `&reportId=${order.reportId || this.data.reportId}`,
+        });
+      })
+      .catch((error) => {
+        this.setData({
+          errorText: error.message || "Unable to create payment order.",
+        });
+      })
+      .finally(() => {
+        this.setData({
+          unlocking: false,
+        });
+      });
   },
 
   regeneratePreview() {

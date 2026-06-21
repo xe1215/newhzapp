@@ -78,6 +78,53 @@ async function getPreview(event, deps) {
   });
 }
 
+async function getReport(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  if (!data.testId || !data.reportId) {
+    return fail("INVALID_PAYLOAD", "testId and reportId are required");
+  }
+
+  const reportResult = await runtime.db.collection("reports").doc(data.reportId).get();
+  const report = reportResult.data || {};
+
+  if (
+    !report._id ||
+    report.openid !== openid ||
+    report.testId !== data.testId ||
+    report.deletedAt
+  ) {
+    return fail("RESOURCE_NOT_FOUND", "Report does not belong to current user");
+  }
+
+  const paidImages = Array.isArray(report.paidImages) ? report.paidImages : [];
+  const locked = !report.unlockedAt;
+
+  if (locked) {
+    return fail("REPORT_LOCKED", "Report is still locked", {
+      testId: data.testId,
+      reportId: data.reportId,
+      locked: true,
+    });
+  }
+
+  return ok({
+    testId: data.testId,
+    reportId: data.reportId,
+    status: report.status || "active",
+    locked: false,
+    paidImages,
+    snapshot: report.snapshot || {},
+    unlockedAt: report.unlockedAt,
+  });
+}
+
 async function main(event, context, deps) {
   const action = event && event.action;
 
@@ -86,7 +133,7 @@ async function main(event, context, deps) {
   }
 
   if (action === "getReport") {
-    return ok({ status: "locked" });
+    return await getReport(event, deps);
   }
 
   if (action === "listMyReports") {
@@ -98,3 +145,4 @@ async function main(event, context, deps) {
 
 exports.main = main;
 exports.getPreview = getPreview;
+exports.getReport = getReport;

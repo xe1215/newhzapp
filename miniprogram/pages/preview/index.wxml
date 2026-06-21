@@ -12,6 +12,6 @@
       <view class="shade-name">{{item.title}}</view>
     </view>
   </view>
-  <button class="primary-button" bindtap="unlockReport">Unlock report</button>
+  <button class="primary-button" loading="{{unlocking}}" bindtap="unlockReport">Unlock report</button>
   <button class="secondary-button" disabled="{{!canRegeneratePreview}}" bindtap="regeneratePreview">Refresh preview</button>
 </view>
