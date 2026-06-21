@@ -8,6 +8,7 @@ function getRuntime(deps) {
   return {
     db: deps && deps.db ? deps.db : cloud.database(),
     wxContext: deps && deps.wxContext ? deps.wxContext : cloud.getWXContext(),
+    now: deps && deps.now ? deps.now : () => new Date(),
   };
 }
 
@@ -114,6 +115,16 @@ async function getReport(event, deps) {
     });
   }
 
+  await runtime.db.collection("events").add({
+    data: {
+      eventName: "report_view",
+      openid,
+      testId: data.testId,
+      reportId: data.reportId,
+      createdAt: runtime.now().toISOString(),
+    },
+  });
+
   return ok({
     testId: data.testId,
     reportId: data.reportId,
@@ -122,6 +133,95 @@ async function getReport(event, deps) {
     paidImages,
     snapshot: report.snapshot || {},
     unlockedAt: report.unlockedAt,
+  });
+}
+
+async function listMyReports(event, deps) {
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  const result = await runtime.db
+    .collection("reports")
+    .where({
+      openid,
+    })
+    .orderBy("createdAt", "desc")
+    .get();
+
+  const reports = (result.data || [])
+    .filter((report) => !report.deletedAt)
+    .filter((report) => Boolean(report.unlockedAt))
+    .map((report) => {
+      const recommendations =
+        report.snapshot && Array.isArray(report.snapshot.recommendations)
+          ? report.snapshot.recommendations
+          : [];
+      const lead = recommendations[0] || {};
+
+      return {
+        reportId: report._id,
+        testId: report.testId || "",
+        version: Number(report.version || 1),
+        status: report.status || "active",
+        locked: !report.unlockedAt,
+        unlockedAt: report.unlockedAt || "",
+        coverImage:
+          Array.isArray(report.paidImages) && report.paidImages.length
+            ? report.paidImages[0]
+            : "",
+        shadeName: lead.shadeName || "",
+        shadeCode: lead.shadeCode || "",
+        brand: lead.brand || "",
+      };
+    });
+
+  return ok({
+    reports,
+  });
+}
+
+async function hideReport(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  if (!data.reportId) {
+    return fail("INVALID_PAYLOAD", "reportId is required");
+  }
+
+  const reportResult = await runtime.db.collection("reports").doc(data.reportId).get();
+  const report = reportResult.data || {};
+
+  if (!report._id || report.openid !== openid || report.deletedAt) {
+    return fail("RESOURCE_NOT_FOUND", "Report does not belong to current user");
+  }
+
+  if (!report.unlockedAt) {
+    return fail("REPORT_LOCKED", "Only unlocked reports can be hidden");
+  }
+
+  const now = runtime.now().toISOString();
+
+  await runtime.db.collection("reports").doc(data.reportId).update({
+    data: {
+      status: "deleted",
+      deletedAt: now,
+      updatedAt: now,
+    },
+  });
+
+  return ok({
+    reportId: data.reportId,
+    hidden: true,
+    deletedAt: now,
   });
 }
 
@@ -137,7 +237,11 @@ async function main(event, context, deps) {
   }
 
   if (action === "listMyReports") {
-    return ok({ reports: [] });
+    return await listMyReports(event, deps);
+  }
+
+  if (action === "hideReport") {
+    return await hideReport(event, deps);
   }
 
   return unsupported(action);
@@ -146,3 +250,5 @@ async function main(event, context, deps) {
 exports.main = main;
 exports.getPreview = getPreview;
 exports.getReport = getReport;
+exports.listMyReports = listMyReports;
+exports.hideReport = hideReport;
