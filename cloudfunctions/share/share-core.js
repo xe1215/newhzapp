@@ -5,6 +5,16 @@ function getRuntime(deps) {
     db: deps && deps.db ? deps.db : cloud.database(),
     wxContext: deps && deps.wxContext ? deps.wxContext : cloud.getWXContext(),
     now: deps && deps.now ? deps.now : () => new Date(),
+    uploadFile:
+      deps && deps.uploadFile
+        ? deps.uploadFile
+        : async ({ cloudPath, filePath, fileContent }) => {
+            return cloud.uploadFile({
+              cloudPath,
+              filePath,
+              fileContent,
+            });
+          },
   };
 }
 

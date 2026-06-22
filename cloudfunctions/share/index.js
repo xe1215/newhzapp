@@ -12,6 +12,7 @@ const {
   getShareEntryRecord,
   getShareRecommendationPayload,
   recordShareVisit,
+  buildShareCardCloudPath,
   createShareEntryRecord,
 } = require("./share-records");
 
@@ -48,8 +49,17 @@ async function createShareEntry(event, deps) {
     return fail("REPORT_LOCKED", "Only unlocked reports can be shared");
   }
 
+  if (!data.shareCardTempFilePath) {
+    return fail("INVALID_PAYLOAD", "shareCardTempFilePath is required");
+  }
+
   const now = runtime.now().toISOString();
   const sharePath = "/pages/share/index";
+  const shareCardCloudPath = buildShareCardCloudPath(openid, data.reportId, recommendationIndex);
+  const uploadResult = await runtime.uploadFile({
+    cloudPath: shareCardCloudPath,
+    filePath: data.shareCardTempFilePath,
+  });
   const created = await createShareEntryRecord(runtime, {
     openid,
     reportId: data.reportId,
@@ -57,6 +67,7 @@ async function createShareEntry(event, deps) {
     report,
     now,
     sharePath,
+    cardPreviewFileId: uploadResult.fileID || "",
   });
 
   return ok({

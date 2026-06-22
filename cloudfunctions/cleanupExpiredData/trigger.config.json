@@ -1,0 +1,10 @@
+{
+  "triggers": [
+    {
+      "name": "cleanupExpiredDataHourly",
+      "type": "timer",
+      "config": "0 0 * * * * *",
+      "description": "Run cleanup every hour to enforce 24-hour selfie and unpaid report retention."
+    }
+  ]
+}

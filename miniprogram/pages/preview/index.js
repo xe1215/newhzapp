@@ -195,4 +195,28 @@ Page({
         });
       });
   },
+
+  deleteSelfie() {
+    if (!this.data.testId) {
+      this.setData({
+        errorText: "Missing test information. Please generate again.",
+      });
+      return;
+    }
+
+    testService
+      .deleteSelfie({
+        testId: this.data.testId,
+      })
+      .then(() => {
+        this.setData({
+          errorText: "Original selfie deleted. Generated reports stay available.",
+        });
+      })
+      .catch((error) => {
+        this.setData({
+          errorText: error.message || "Unable to delete the original selfie.",
+        });
+      });
+  },
 });

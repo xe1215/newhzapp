@@ -16,7 +16,9 @@
       <view class="copy">{{item.recommendationReason}}</view>
       <view class="copy" wx:if="{{item.cautionNote}}">Caution: {{item.cautionNote}}</view>
       <view class="copy" wx:if="{{item.substitute}}">Substitute: {{item.substitute}}</view>
+      <button class="secondary-button" data-recommendation-index="{{index}}" bindtap="saveCardToAlbum">Save card</button>
+      <button class="secondary-button" data-recommendation-index="{{index}}" loading="{{sharingIndex === index}}" bindtap="shareCard">Share one card</button>
     </view>
   </view>
-  <button class="secondary-button" bindtap="shareCard">Share one card</button>
+  <canvas type="2d" id="share-card-canvas" style="position: fixed; left: -9999px; top: -9999px; width: 300px; height: 400px;"></canvas>
 </view>

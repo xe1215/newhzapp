@@ -5,4 +5,6 @@
   <view class="copy" wx:if="{{feedback}}">{{feedback}}</view>
   <button class="secondary-button" loading="{{confirming}}" bindtap="confirmUnlock">Confirm payment</button>
   <button class="primary-button" bindtap="viewReport" disabled="{{!canViewReport}}">View report</button>
+  <button class="secondary-button" bindtap="requestRefund">Request refund</button>
+  <button class="secondary-button" bindtap="openRefundHelp">Refund help</button>
 </view>

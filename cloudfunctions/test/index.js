@@ -461,6 +461,53 @@ async function submitPreferences(event, deps) {
   });
 }
 
+async function deleteSelfie(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  if (!data.testId) {
+    return fail("INVALID_PAYLOAD", "testId is required");
+  }
+
+  const testResult = await runtime.db.collection("try_on_tests").doc(data.testId).get();
+  const testRecord = testResult.data || {};
+
+  if (!testRecord._id || testRecord.openid !== openid) {
+    return fail("RESOURCE_NOT_FOUND", "Test does not belong to current user");
+  }
+
+  const now = runtime.now().toISOString();
+  if (testRecord.selfieFileId) {
+    await runtime.deleteFile(testRecord.selfieFileId).catch(() => null);
+  }
+
+  await runtime.db.collection("try_on_tests").doc(data.testId).update({
+    data: {
+      selfieFileId: "",
+      updatedAt: now,
+    },
+  });
+
+  await runtime.db.collection("events").add({
+    data: {
+      type: "delete_selfie",
+      openid,
+      testId: data.testId,
+      createdAt: now,
+    },
+  });
+
+  return ok({
+    testId: data.testId,
+    selfieDeleted: true,
+  });
+}
+
 async function generateTryOnImages(event, deps) {
   const data = getEventData(event);
   const runtime = getRuntime(deps);
@@ -784,6 +831,10 @@ async function main(event, context, deps) {
     return await generateTryOnImages(event, deps);
   }
 
+  if (action === "deleteSelfie") {
+    return await deleteSelfie(event, deps);
+  }
+
   return unsupported(action);
 }
 
@@ -792,6 +843,7 @@ exports.uploadSelfie = uploadSelfie;
 exports.submitPreferences = submitPreferences;
 exports.regeneratePreview = regeneratePreview;
 exports.generateTryOnImages = generateTryOnImages;
+exports.deleteSelfie = deleteSelfie;
 exports.inspectSelfie = inspectSelfie;
 exports.rankLipsticks = rankLipsticks;
 exports.getProviderConfig = getProviderConfig;

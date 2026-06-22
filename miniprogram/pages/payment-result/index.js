@@ -80,4 +80,41 @@ Page({
       url: `/pages/report/index?testId=${this.data.testId}&reportId=${this.data.reportId}`,
     });
   },
+
+  requestRefund() {
+    if (!this.data.orderId) {
+      this.setData({
+        feedback: "Missing order information. Please try again later.",
+      });
+      return;
+    }
+
+    paymentService
+      .requestRefund({
+        orderId: this.data.orderId,
+        refundReason: this.data.canViewReport
+          ? "REPORT_ALREADY_VIEWED"
+          : "PAID_BUT_REPORT_UNAVAILABLE",
+      })
+      .then((response) => {
+        const data = unwrapCloudCall(response, "Refund request failed.");
+        this.setData({
+          feedback:
+            data.refundStatus === "requested"
+              ? "Refund request submitted. Merchant-side verification will follow in WeChat Pay."
+              : "Refund request status updated.",
+        });
+      })
+      .catch((error) => {
+        this.setData({
+          feedback: error.message || "Refund request failed.",
+        });
+      });
+  },
+
+  openRefundHelp() {
+    wx.navigateTo({
+      url: `/pages/refund-help/index?orderId=${this.data.orderId}`,
+    });
+  },
 });

@@ -44,6 +44,18 @@ function buildOutTradeNo(orderId) {
   return `hz-${String(orderId)}`;
 }
 
+function canRequestRefund(order) {
+  if (!order || order.status !== "paid") {
+    return false;
+  }
+
+  if (order.canViewReport) {
+    return false;
+  }
+
+  return order.refundStatus === "pending" || order.refundStatus === "requested";
+}
+
 async function createReportOrder(event, deps) {
   const data = (event && event.data) || {};
   const runtime = getRuntime(deps);
@@ -209,6 +221,62 @@ async function confirmPayment(event, deps) {
   });
 }
 
+async function requestRefund(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  if (!data.orderId || !data.refundReason) {
+    return fail("INVALID_PAYLOAD", "orderId and refundReason are required");
+  }
+
+  const orderResult = await runtime.db.collection("orders").doc(data.orderId).get();
+  const order = orderResult.data || {};
+
+  if (!order._id || order.openid !== openid) {
+    return fail("RESOURCE_NOT_FOUND", "Order does not belong to current user");
+  }
+
+  if (!canRequestRefund(order)) {
+    return fail(
+      "REFUND_NOT_ALLOWED",
+      "Refund is only available when a paid report cannot be viewed yet"
+    );
+  }
+
+  const now = runtime.now().toISOString();
+  await runtime.db.collection("orders").doc(order._id).update({
+    data: {
+      refundStatus: "requested",
+      refundReason: data.refundReason,
+      refundRequestedAt: now,
+      updatedAt: now,
+    },
+  });
+
+  await runtime.db.collection("events").add({
+    data: {
+      type: "refund_request",
+      openid,
+      orderId: order._id,
+      reportId: order.reportId,
+      testId: order.testId,
+      refundReason: data.refundReason,
+      createdAt: now,
+    },
+  });
+
+  return ok({
+    orderId: order._id,
+    refundStatus: "requested",
+    refundReason: data.refundReason,
+  });
+}
+
 async function main(event, context, deps) {
   const action = event && event.action;
 
@@ -220,9 +288,14 @@ async function main(event, context, deps) {
     return await confirmPayment(event, deps);
   }
 
+  if (action === "requestRefund") {
+    return await requestRefund(event, deps);
+  }
+
   return unsupported(action);
 }
 
 exports.main = main;
 exports.createReportOrder = createReportOrder;
 exports.confirmPayment = confirmPayment;
+exports.requestRefund = requestRefund;

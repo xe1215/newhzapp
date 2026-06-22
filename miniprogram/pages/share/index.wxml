@@ -3,6 +3,9 @@
   <view class="copy">Shared pages show one result card and a restart entry.</view>
   <view class="copy" wx:if="{{loading}}">Loading shared card...</view>
   <view class="copy" wx:if="{{feedback}}">{{feedback}}</view>
+  <view wx:if="{{shareCardImage}}" class="report-card">
+    <image class="preview-image" src="{{shareCardImage}}" mode="widthFix"></image>
+  </view>
   <view wx:if="{{recommendation}}" class="report-card">
     <view class="shade-name">{{recommendation.shadeName}} {{recommendation.shadeCode}}</view>
     <view class="copy">{{recommendation.brand}} · {{recommendation.colorHex}}</view>

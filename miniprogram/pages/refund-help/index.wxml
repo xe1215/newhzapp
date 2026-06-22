@@ -1,4 +1,7 @@
 <view class="page">
   <view class="title">Refund help</view>
   <view class="copy">Refunds are available when generation fails or a paid report cannot be viewed.</view>
+  <view class="copy">Refund payout and reconciliation are completed through the WeChat Pay merchant platform.</view>
+  <button class="secondary-button" loading="{{submitting}}" bindtap="requestRefund">Request refund</button>
+  <view wx:if="{{feedback}}" class="copy">{{feedback}}</view>
 </view>
