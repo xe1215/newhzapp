@@ -1112,6 +1112,154 @@ async function exportLipsticksCsv(event, deps) {
   });
 }
 
+async function listTests(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const query = buildAdminRecordQuery(data.filters, ["openid", "status"]);
+  const result = await runtime.db
+    .collection("try_on_tests")
+    .where(query)
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+
+  return ok({
+    items: (result.data || []).map(mapTestRecordListItem),
+  });
+}
+
+async function getTestDetail(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const testId = normalizeText(data.testId);
+  if (!testId) {
+    return fail("INVALID_PAYLOAD", "testId is required");
+  }
+
+  const result = await runtime.db.collection("try_on_tests").doc(testId).get();
+  const record = result.data || null;
+
+  if (!record || !record._id) {
+    return fail("RESOURCE_NOT_FOUND", "Test record was not found");
+  }
+
+  return ok(mapTestRecordDetail(record));
+}
+
+async function listReports(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const query = buildAdminRecordQuery(data.filters, ["openid", "status", "testId"]);
+  const result = await runtime.db
+    .collection("reports")
+    .where(query)
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+
+  return ok({
+    items: (result.data || []).map(mapReportRecordListItem),
+  });
+}
+
+async function getReportDetail(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const reportId = normalizeText(data.reportId);
+  if (!reportId) {
+    return fail("INVALID_PAYLOAD", "reportId is required");
+  }
+
+  const result = await runtime.db.collection("reports").doc(reportId).get();
+  const record = result.data || null;
+
+  if (!record || !record._id) {
+    return fail("RESOURCE_NOT_FOUND", "Report record was not found");
+  }
+
+  return ok(mapReportRecordDetail(record));
+}
+
+async function flagReport(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const reportId = normalizeText(data.reportId);
+  const operation = normalizeStatus(data.operation);
+  const reason = normalizeText(data.reason);
+
+  if (!reportId || !operation) {
+    return fail("INVALID_PAYLOAD", "reportId and operation are required");
+  }
+
+  const previous = (await runtime.db.collection("reports").doc(reportId).get()).data || null;
+  if (!previous || !previous._id) {
+    return fail("RESOURCE_NOT_FOUND", "Report record was not found");
+  }
+
+  const nextRecord = {
+    ...previous,
+    updatedAt: runtime.now().toISOString(),
+  };
+
+  let actionName = "";
+
+  if (operation === "hide") {
+    nextRecord.status = "hidden";
+    nextRecord.hiddenAt = nextRecord.updatedAt;
+    nextRecord.hiddenReason = reason;
+    actionName = "hide_report";
+  } else if (operation === "flag") {
+    nextRecord.status = "flagged";
+    nextRecord.flaggedAt = nextRecord.updatedAt;
+    nextRecord.flaggedReason = reason;
+    actionName = "flag_report";
+  } else {
+    return fail("INVALID_ACTION", `Unsupported report operation: ${data.operation}`);
+  }
+
+  await runtime.db.collection("reports").doc(reportId).set({
+    data: nextRecord,
+  });
+
+  await appendAdminAction(runtime, actionName, "report", reportId, previous, nextRecord);
+
+  return ok({
+    reportId,
+    status: nextRecord.status,
+    updatedAt: nextRecord.updatedAt,
+  });
+}
+
 async function main(event, context, deps) {
   const action = event && event.action;
 
@@ -1152,6 +1300,26 @@ async function main(event, context, deps) {
       return await exportLipsticksCsv(event, deps);
     }
 
+    if (action === "listTests") {
+      return await listTests(event, deps);
+    }
+
+    if (action === "getTestDetail") {
+      return await getTestDetail(event, deps);
+    }
+
+    if (action === "listReports") {
+      return await listReports(event, deps);
+    }
+
+    if (action === "getReportDetail") {
+      return await getReportDetail(event, deps);
+    }
+
+    if (action === "flagReport") {
+      return await flagReport(event, deps);
+    }
+
     return unsupported(action);
   } catch (error) {
     return fail("ADMIN_FUNCTION_ERROR", error.message);
@@ -1168,3 +1336,8 @@ exports.saveLipstick = saveLipstick;
 exports.setLipstickStatus = setLipstickStatus;
 exports.importLipsticksCsv = importLipsticksCsv;
 exports.exportLipsticksCsv = exportLipsticksCsv;
+exports.listTests = listTests;
+exports.getTestDetail = getTestDetail;
+exports.listReports = listReports;
+exports.getReportDetail = getReportDetail;
+exports.flagReport = flagReport;

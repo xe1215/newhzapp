@@ -2,10 +2,15 @@ import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   exportLipsticksCsv,
+  flagReport,
   getOverview,
+  getReportDetail,
   getShell,
+  getTestDetail,
   importLipsticksCsv,
   listLipsticks,
+  listReports,
+  listTests,
   login,
   logout,
   saveLipstick,
@@ -446,6 +451,393 @@ function LipstickLibraryPage({ token }) {
   );
 }
 
+function emptyInvestigationFilters(extra) {
+  return {
+    openid: "",
+    status: "",
+    startDate: "",
+    endDate: "",
+    ...(extra || {}),
+  };
+}
+
+function formatTimestamp(value) {
+  return value || "Not recorded";
+}
+
+function TestsPage({ token }) {
+  const [filters, setFilters] = useState(emptyInvestigationFilters());
+  const [items, setItems] = useState([]);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setLoading(true);
+    setErrorText("");
+
+    listTests(token, filters)
+      .then((data) => {
+        if (!cancelled) {
+          setItems(Array.isArray(data.items) ? data.items : []);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setErrorText(error.message || "Unable to load test records.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, filters.openid, filters.status, filters.startDate, filters.endDate]);
+
+  async function handleSelect(testId) {
+    setDetailLoading(true);
+    setErrorText("");
+
+    try {
+      const detail = await getTestDetail(token, testId);
+      setSelectedDetail(detail);
+    } catch (error) {
+      setErrorText(error.message || "Unable to load test detail.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  return (
+    <section className="module-panel">
+      <header className="module-header overview-header">
+        <div>
+          <p className="module-eyebrow">Test Records</p>
+          <h2>Test Records</h2>
+          <p className="module-copy">
+            Investigate try-on tests by openid, status, and date range without turning the console into an image gallery.
+          </p>
+        </div>
+      </header>
+
+      <div className="filters-grid">
+        <label className="field-stack">
+          <span>openid</span>
+          <input
+            className="field-input"
+            value={filters.openid}
+            onChange={(event) => setFilters((current) => ({ ...current, openid: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Status</span>
+          <input
+            className="field-input"
+            value={filters.status}
+            onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Start date</span>
+          <input
+            className="field-input"
+            type="datetime-local"
+            value={filters.startDate}
+            onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>End date</span>
+          <input
+            className="field-input"
+            type="datetime-local"
+            value={filters.endDate}
+            onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))}
+          />
+        </label>
+      </div>
+
+      {loading ? <p className="module-copy">Loading test records...</p> : null}
+      {errorText ? <p className="error-text">{errorText}</p> : null}
+
+      <div className="library-layout">
+        <section className="subpanel">
+          <h3>Search results</h3>
+          <div className="table-shell">
+            <table className="record-table">
+              <thead>
+                <tr>
+                  <th>Test ID</th>
+                  <th>openid</th>
+                  <th>Status</th>
+                  <th>Generation</th>
+                  <th>Current report</th>
+                  <th>Regenerates</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.testId}>
+                    <td>{item.testId}</td>
+                    <td>{item.openidMasked}</td>
+                    <td>{item.status}</td>
+                    <td>{item.generationStatus || "pending"}</td>
+                    <td>{item.currentReportId || "-"}</td>
+                    <td>
+                      {item.previewRegenerateCount}/{item.maxPreviewRegenerateCount}
+                    </td>
+                    <td className="row-actions">
+                      <button type="button" className="ghost-button" onClick={() => handleSelect(item.testId)}>
+                        View detail
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="subpanel">
+          <h3>Test detail</h3>
+          {detailLoading ? <p className="module-copy">Loading detail...</p> : null}
+          {!detailLoading && !selectedDetail ? (
+            <p className="module-copy">Select a test record to inspect lifecycle, preferences, and Current report.</p>
+          ) : null}
+          {selectedDetail ? (
+            <div className="detail-stack">
+              <p><strong>Test ID:</strong> {selectedDetail.testId}</p>
+              <p><strong>openid:</strong> {selectedDetail.openid}</p>
+              <p><strong>Current report:</strong> {selectedDetail.currentReportId || "-"}</p>
+              <p><strong>Skin tone:</strong> {selectedDetail.preferences.skinTone || "-"}</p>
+              <p><strong>Budget:</strong> {selectedDetail.preferences.budget || "-"}</p>
+              <p><strong>Scene:</strong> {selectedDetail.preferences.scene || "-"}</p>
+              <p><strong>Style:</strong> {selectedDetail.preferences.style || "-"}</p>
+              <p><strong>Safety:</strong> {selectedDetail.statuses.safetyStatus || "-"}</p>
+              <p><strong>Quality:</strong> {selectedDetail.statuses.qualityStatus || "-"}</p>
+              <p><strong>Generation:</strong> {selectedDetail.statuses.generationStatus || "-"}</p>
+              <p><strong>Created:</strong> {formatTimestamp(selectedDetail.lifecycle.createdAt)}</p>
+              <p><strong>Preference submitted:</strong> {formatTimestamp(selectedDetail.lifecycle.preferenceSubmittedAt)}</p>
+              <p><strong>Generation started:</strong> {formatTimestamp(selectedDetail.lifecycle.generationStartedAt)}</p>
+              <p><strong>Generation completed:</strong> {formatTimestamp(selectedDetail.lifecycle.generationCompletedAt)}</p>
+              <p><strong>Report ready:</strong> {formatTimestamp(selectedDetail.lifecycle.reportReadyAt)}</p>
+            </div>
+          ) : null}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function ReportsPage({ token }) {
+  const [filters, setFilters] = useState(emptyInvestigationFilters({ testId: "" }));
+  const [items, setItems] = useState([]);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [successText, setSuccessText] = useState("");
+
+  async function loadReportsData(currentFilters) {
+    setLoading(true);
+    setErrorText("");
+
+    try {
+      const data = await listReports(token, currentFilters);
+      setItems(Array.isArray(data.items) ? data.items : []);
+    } catch (error) {
+      setErrorText(error.message || "Unable to load report records.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadReportsData(filters);
+  }, [token, filters.openid, filters.status, filters.testId, filters.startDate, filters.endDate]);
+
+  async function handleSelect(reportId) {
+    setDetailLoading(true);
+    setErrorText("");
+
+    try {
+      const detail = await getReportDetail(token, reportId);
+      setSelectedDetail(detail);
+    } catch (error) {
+      setErrorText(error.message || "Unable to load report detail.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleMutation(operation) {
+    if (!selectedDetail) {
+      return;
+    }
+
+    const reason = window.prompt(
+      operation === "hide" ? "Why should this report be hidden?" : "Why should this report be marked abnormal?",
+      ""
+    );
+
+    if (reason === null) {
+      return;
+    }
+
+    setErrorText("");
+    setSuccessText("");
+
+    try {
+      await flagReport(token, selectedDetail.reportId, operation, reason);
+      setSuccessText(operation === "hide" ? "Hide report completed." : "Mark abnormal completed.");
+      await handleSelect(selectedDetail.reportId);
+      await loadReportsData(filters);
+    } catch (error) {
+      setErrorText(error.message || "Unable to update report status.");
+    }
+  }
+
+  return (
+    <section className="module-panel">
+      <header className="module-header overview-header">
+        <div>
+          <p className="module-eyebrow">Report Records</p>
+          <h2>Report Records</h2>
+          <p className="module-copy">
+            Review recommendation snapshots, unlock state, and asset links while keeping the list focused on investigation data.
+          </p>
+        </div>
+      </header>
+
+      <div className="filters-grid">
+        <label className="field-stack">
+          <span>openid</span>
+          <input
+            className="field-input"
+            value={filters.openid}
+            onChange={(event) => setFilters((current) => ({ ...current, openid: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Status</span>
+          <input
+            className="field-input"
+            value={filters.status}
+            onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Test ID</span>
+          <input
+            className="field-input"
+            value={filters.testId}
+            onChange={(event) => setFilters((current) => ({ ...current, testId: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Start date</span>
+          <input
+            className="field-input"
+            type="datetime-local"
+            value={filters.startDate}
+            onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>End date</span>
+          <input
+            className="field-input"
+            type="datetime-local"
+            value={filters.endDate}
+            onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))}
+          />
+        </label>
+      </div>
+
+      {loading ? <p className="module-copy">Loading report records...</p> : null}
+      {errorText ? <p className="error-text">{errorText}</p> : null}
+      {successText ? <p className="success-text">{successText}</p> : null}
+
+      <div className="library-layout">
+        <section className="subpanel">
+          <h3>Search results</h3>
+          <div className="table-shell">
+            <table className="record-table">
+              <thead>
+                <tr>
+                  <th>Report ID</th>
+                  <th>openid</th>
+                  <th>Status</th>
+                  <th>Test ID</th>
+                  <th>Unlock</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.reportId}>
+                    <td>{item.reportId}</td>
+                    <td>{item.openidMasked}</td>
+                    <td>{item.status}</td>
+                    <td>{item.testId || "-"}</td>
+                    <td>{item.locked ? "Locked" : "Unlocked"}</td>
+                    <td className="row-actions">
+                      <button type="button" className="ghost-button" onClick={() => handleSelect(item.reportId)}>
+                        View detail
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="subpanel">
+          <h3>Report detail</h3>
+          {detailLoading ? <p className="module-copy">Loading detail...</p> : null}
+          {!detailLoading && !selectedDetail ? (
+            <p className="module-copy">Select a report to inspect links, unlock status, and recommendation snapshot.</p>
+          ) : null}
+          {selectedDetail ? (
+            <>
+              <div className="detail-stack">
+                <p><strong>Report ID:</strong> {selectedDetail.reportId}</p>
+                <p><strong>openid:</strong> {selectedDetail.openid}</p>
+                <p><strong>Test ID:</strong> {selectedDetail.testId || "-"}</p>
+                <p><strong>Status:</strong> {selectedDetail.status}</p>
+                <p><strong>Unlocked:</strong> {selectedDetail.unlock.unlocked ? selectedDetail.unlock.unlockedAt : "Locked"}</p>
+                <p><strong>Preview links:</strong> {selectedDetail.assets.previewImages.join(", ") || "None"}</p>
+                <p><strong>Formal links:</strong> {selectedDetail.assets.paidImages.join(", ") || "None"}</p>
+                <p><strong>Share card links:</strong> {selectedDetail.assets.shareCardImages.join(", ") || "None"}</p>
+                <p><strong>Lead shade:</strong> {selectedDetail.snapshot.recommendations?.[0]?.shadeName || "-"}</p>
+                <p><strong>Hidden:</strong> {selectedDetail.audit.hiddenAt || "No"}</p>
+                <p><strong>Flagged:</strong> {selectedDetail.audit.flaggedAt || "No"}</p>
+              </div>
+              <div className="toolbar-actions">
+                <button type="button" className="primary-button slim-button" onClick={() => handleMutation("hide")}>
+                  Hide report
+                </button>
+                <button type="button" className="ghost-button light-ghost" onClick={() => handleMutation("flag")}>
+                  Mark abnormal
+                </button>
+              </div>
+            </>
+          ) : null}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function OverviewPage({ token }) {
   const [rangeKey, setRangeKey] = useState("today");
   const [overview, setOverview] = useState(null);
@@ -654,8 +1046,8 @@ function ShellLayout({ shellData, token, onLogout }) {
         <Routes>
           <Route path="/overview" element={<OverviewPage token={token} />} />
           <Route path="/lipsticks" element={<LipstickLibraryPage token={token} />} />
-          <Route path="/tests" element={<ModulePage title="Test Records" />} />
-          <Route path="/reports" element={<ModulePage title="Report Records" />} />
+          <Route path="/tests" element={<TestsPage token={token} />} />
+          <Route path="/reports" element={<ReportsPage token={token} />} />
           <Route path="/orders" element={<ModulePage title="Orders and Refund Handling" />} />
           <Route path="/logs" element={<ModulePage title="Generation and Event Logs" />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
