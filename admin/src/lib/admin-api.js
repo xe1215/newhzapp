@@ -39,3 +39,48 @@ export function getShell(token) {
 export function getOverview(token, rangeKey) {
   return invokeAdmin("getOverview", { token, rangeKey });
 }
+
+export function listLipsticks(token, filters) {
+  return invokeAdmin("listLipsticks", { token, filters: filters || {} });
+}
+
+export function saveLipstick(token, lipstick) {
+  return invokeAdmin("saveLipstick", { token, lipstick });
+}
+
+export function setLipstickStatus(token, lipstickId, status) {
+  return invokeAdmin("setLipstickStatus", { token, lipstickId, status });
+}
+
+export function importLipsticksCsv(token, csvText) {
+  return invokeAdmin("importLipsticksCsv", { token, csvText });
+}
+
+export function exportLipsticksCsv(token) {
+  return invokeAdmin("exportLipsticksCsv", { token });
+}
+
+export function listTests(token, filters) {
+  return invokeAdmin("listTests", { token, filters: filters || {} });
+}
+
+export function getTestDetail(token, testId) {
+  return invokeAdmin("getTestDetail", { token, testId });
+}
+
+export function listReports(token, filters) {
+  return invokeAdmin("listReports", { token, filters: filters || {} });
+}
+
+export function getReportDetail(token, reportId) {
+  return invokeAdmin("getReportDetail", { token, reportId });
+}
+
+export function flagReport(token, reportId, operation, reason) {
+  return invokeAdmin("flagReport", {
+    token,
+    reportId,
+    operation,
+    reason,
+  });
+}

@@ -25,6 +25,11 @@ input {
   font: inherit;
 }
 
+textarea,
+select {
+  font: inherit;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -113,6 +118,11 @@ input {
   margin: 12px 0 0;
 }
 
+.success-text {
+  color: #17603a;
+  margin: 12px 0 0;
+}
+
 .admin-shell {
   min-height: 100vh;
   display: grid;
@@ -188,6 +198,11 @@ input {
   gap: 10px;
 }
 
+.toolbar-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .range-chip {
   padding: 10px 14px;
   border-radius: 999px;
@@ -243,6 +258,88 @@ input {
   padding: 20px;
 }
 
+.filters-grid,
+.library-layout,
+.editor-form {
+  display: grid;
+  gap: 16px;
+}
+
+.filters-grid {
+  margin-top: 24px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.library-layout {
+  margin-top: 24px;
+  grid-template-columns: 1.2fr 1fr;
+}
+
+.editor-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-stack {
+  display: grid;
+  gap: 8px;
+  color: #5f5144;
+  font-weight: 600;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  grid-column: 1 / -1;
+}
+
+.form-actions .primary-button,
+.form-actions .ghost-button {
+  width: auto;
+  margin-top: 0;
+}
+
+.csv-textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(104, 72, 30, 0.2);
+  background: #fffdf9;
+  resize: vertical;
+}
+
+.table-shell {
+  overflow-x: auto;
+}
+
+.record-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.record-table th,
+.record-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(94, 69, 37, 0.1);
+  text-align: left;
+  color: #4f4338;
+}
+
+.record-table th {
+  color: #342313;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.row-actions .ghost-button {
+  background: #efe1cd;
+  color: #6f4617;
+}
+
 .subpanel h3,
 .empty-state h3 {
   margin-top: 0;
@@ -273,4 +370,22 @@ input {
 .empty-state {
   margin-top: 24px;
   padding: 24px;
+}
+
+@media (max-width: 1100px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-grid,
+  .library-layout,
+  .overview-sections,
+  .metrics-grid,
+  .editor-form {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    gap: 20px;
+  }
 }

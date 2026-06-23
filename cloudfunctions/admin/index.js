@@ -57,6 +57,175 @@ const OVERVIEW_RANGES = {
   },
 };
 
+function toIsoString(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+function getDateRangeFilters(filters) {
+  const startDate = toIsoString(filters && filters.startDate);
+  const endDate = toIsoString(filters && filters.endDate);
+
+  if (!startDate && !endDate) {
+    return null;
+  }
+
+  const createdAt = {};
+
+  if (startDate) {
+    createdAt.$gte = startDate;
+  }
+
+  if (endDate) {
+    createdAt.$lt = endDate;
+  }
+
+  return Object.keys(createdAt).length ? createdAt : null;
+}
+
+function maskOpenId(openid) {
+  const value = String(openid || "");
+
+  if (!value) {
+    return "";
+  }
+
+  if (value.length <= 8) {
+    return `${value.slice(0, 2)}...${value.slice(-2)}`;
+  }
+
+  return `${value.slice(0, 9)}...${value.slice(-4)}`;
+}
+
+function stringField(value, fallback) {
+  return typeof value === "string" && value ? value : fallback || "";
+}
+
+function numberField(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number(fallback || 0);
+}
+
+function buildListQuery(filters, fieldMap) {
+  const query = {};
+  const safeFilters = filters || {};
+
+  Object.keys(fieldMap).forEach((key) => {
+    if (safeFilters[key]) {
+      query[fieldMap[key]] = safeFilters[key];
+    }
+  });
+
+  const createdAt = getDateRangeFilters(safeFilters);
+  if (createdAt) {
+    query.createdAt = createdAt;
+  }
+
+  return query;
+}
+
+function mapAdminTestListItem(record) {
+  return {
+    testId: record._id,
+    openidMasked: maskOpenId(record.openid),
+    status: stringField(record.status, "unknown"),
+    generationStatus: stringField(record.generationStatus, ""),
+    safetyStatus: stringField(record.safetyStatus, ""),
+    qualityStatus: stringField(record.qualityStatus, ""),
+    currentReportId: stringField(record.currentReportId, ""),
+    previewRegenerateCount: numberField(record.previewRegenerateCount, 0),
+    maxPreviewRegenerateCount: numberField(record.maxPreviewRegenerateCount, 0),
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+function mapAdminTestDetail(record) {
+  return {
+    testId: record._id,
+    openid: stringField(record.openid, ""),
+    status: stringField(record.status, "unknown"),
+    currentReportId: stringField(record.currentReportId, ""),
+    selfieFileId: stringField(record.selfieFileId, ""),
+    preferences: record.preferenceSummary || {},
+    statuses: {
+      safetyStatus: stringField(record.safetyStatus, ""),
+      qualityStatus: stringField(record.qualityStatus, ""),
+      generationStatus: stringField(record.generationStatus, ""),
+    },
+    lifecycle: {
+      createdAt: stringField(record.createdAt, ""),
+      updatedAt: stringField(record.updatedAt, ""),
+      preferenceSubmittedAt: stringField(record.preferenceSubmittedAt, ""),
+      generationStartedAt: stringField(record.generationStartedAt, ""),
+      generationCompletedAt: stringField(record.generationCompletedAt, ""),
+      reportReadyAt: stringField(record.reportReadyAt, ""),
+    },
+    previewRegenerateCount: numberField(record.previewRegenerateCount, 0),
+    maxPreviewRegenerateCount: numberField(record.maxPreviewRegenerateCount, 0),
+  };
+}
+
+function mapAdminReportListItem(record) {
+  return {
+    reportId: record._id,
+    testId: stringField(record.testId, ""),
+    openidMasked: maskOpenId(record.openid),
+    status: stringField(record.status, "unknown"),
+    locked: !record.unlockedAt,
+    unlockedAt: stringField(record.unlockedAt, ""),
+    hiddenAt: stringField(record.hiddenAt, ""),
+    flaggedAt: stringField(record.flaggedAt, ""),
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+function mapAdminReportDetail(record) {
+  return {
+    reportId: record._id,
+    testId: stringField(record.testId, ""),
+    openid: stringField(record.openid, ""),
+    status: stringField(record.status, "unknown"),
+    unlock: {
+      unlocked: Boolean(record.unlockedAt),
+      unlockedAt: stringField(record.unlockedAt, ""),
+    },
+    assets: {
+      previewImages: Array.isArray(record.previewImages) ? record.previewImages : [],
+      paidImages: Array.isArray(record.paidImages) ? record.paidImages : [],
+      shareCardImages: Array.isArray(record.shareCardImages) ? record.shareCardImages : [],
+    },
+    snapshot: record.snapshot || {},
+    audit: {
+      hiddenAt: stringField(record.hiddenAt, ""),
+      hiddenReason: stringField(record.hiddenReason, ""),
+      flaggedAt: stringField(record.flaggedAt, ""),
+      flaggedReason: stringField(record.flaggedReason, ""),
+      deletedAt: stringField(record.deletedAt, ""),
+    },
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+async function addAdminAction(runtime, payload) {
+  await runtime.db.collection("admin_actions").add({
+    data: {
+      action: payload.action,
+      resourceType: payload.resourceType,
+      resourceId: payload.resourceId,
+      reason: payload.reason || "",
+      createdAt: payload.createdAt,
+      actorRole: "developer",
+    },
+  });
+}
+
 function ok(data) {
   return {
     code: 0,
@@ -82,6 +251,10 @@ function getRuntime(deps) {
     db: deps && deps.db ? deps.db : cloud.database(),
     env: deps && deps.env ? deps.env : process.env,
     now: deps && deps.now ? deps.now : () => new Date(),
+    id:
+      deps && deps.id
+        ? deps.id
+        : () => crypto.randomBytes(12).toString("hex"),
     randomBytes:
       deps && deps.randomBytes
         ? deps.randomBytes
@@ -149,6 +322,323 @@ function buildCreatedAtRange(now, rangeKey) {
     start: bounds.start.toISOString(),
     end: bounds.end.toISOString(),
   };
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function normalizeStatus(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function normalizeColorHex(value) {
+  return normalizeText(value).toUpperCase();
+}
+
+function normalizeTags(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeText(item)).filter(Boolean);
+  }
+
+  return normalizeText(value)
+    .split("|")
+    .map((item) => normalizeText(item))
+    .filter(Boolean);
+}
+
+function normalizeBudget(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : NaN;
+}
+
+function clone(value) {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+async function listCollectionRecords(runtime, name) {
+  const result = await runtime.db.collection(name).get();
+  return result.data || [];
+}
+
+function validateLipstickInput(input, existingRecords, currentId) {
+  const lipstick = {
+    brand: normalizeText(input.brand),
+    shadeName: normalizeText(input.shadeName),
+    shadeCode: normalizeText(input.shadeCode),
+    colorHex: normalizeColorHex(input.colorHex),
+    skinToneTags: normalizeTags(input.skinToneTags),
+    budgetMin: normalizeBudget(input.budgetMin),
+    budgetMax: normalizeBudget(input.budgetMax),
+    status: normalizeStatus(input.status),
+  };
+  const errors = [];
+
+  if (!lipstick.brand) {
+    errors.push("brand is required");
+  }
+  if (!lipstick.shadeName) {
+    errors.push("shadeName is required");
+  }
+  if (!lipstick.shadeCode) {
+    errors.push("shadeCode is required");
+  }
+  if (!/^#[0-9A-F]{6}$/.test(lipstick.colorHex)) {
+    errors.push("colorHex must be a #RRGGBB value");
+  }
+  if (!lipstick.skinToneTags.length) {
+    errors.push("skinToneTags must contain at least one tag");
+  }
+  if (!Number.isFinite(lipstick.budgetMin) || lipstick.budgetMin < 0) {
+    errors.push("budgetMin must be a valid non-negative number");
+  }
+  if (!Number.isFinite(lipstick.budgetMax) || lipstick.budgetMax < 0) {
+    errors.push("budgetMax must be a valid non-negative number");
+  }
+  if (
+    Number.isFinite(lipstick.budgetMin) &&
+    Number.isFinite(lipstick.budgetMax) &&
+    lipstick.budgetMin > lipstick.budgetMax
+  ) {
+    errors.push("budgetMin cannot be greater than budgetMax");
+  }
+  if (!["active", "inactive"].includes(lipstick.status)) {
+    errors.push("status must be active or inactive");
+  }
+
+  const duplicate = (existingRecords || []).find((item) => {
+    if (item._id === currentId) {
+      return false;
+    }
+
+    return (
+      normalizeText(item.brand) === lipstick.brand &&
+      normalizeText(item.shadeName) === lipstick.shadeName &&
+      normalizeText(item.shadeCode) === lipstick.shadeCode
+    );
+  });
+
+  if (duplicate) {
+    errors.push("duplicate brand/shadeName/shadeCode combination");
+  }
+
+  return {
+    lipstick,
+    errors,
+  };
+}
+
+function filterLipsticks(records, filters) {
+  const normalizedFilters = filters || {};
+
+  return (records || []).filter((item) => {
+    if (
+      normalizedFilters.brand &&
+      normalizeText(item.brand).toLowerCase() !== normalizeText(normalizedFilters.brand).toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      normalizedFilters.status &&
+      normalizeStatus(item.status) !== normalizeStatus(normalizedFilters.status)
+    ) {
+      return false;
+    }
+
+    if (normalizedFilters.skinToneTag) {
+      const tags = normalizeTags(item.skinToneTags).map((tag) => tag.toLowerCase());
+      if (!tags.includes(normalizeText(normalizedFilters.skinToneTag).toLowerCase())) {
+        return false;
+      }
+    }
+
+    if (
+      Number.isFinite(Number(normalizedFilters.budgetMin)) &&
+      Number(item.budgetMin || 0) < Number(normalizedFilters.budgetMin)
+    ) {
+      return false;
+    }
+
+    if (
+      Number.isFinite(Number(normalizedFilters.budgetMax)) &&
+      Number(item.budgetMax || 0) > Number(normalizedFilters.budgetMax)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function buildLipstickFilters(records) {
+  const brands = [...new Set((records || []).map((item) => normalizeText(item.brand)).filter(Boolean))].sort();
+  const skinToneTags = [
+    ...new Set(
+      (records || [])
+        .flatMap((item) => normalizeTags(item.skinToneTags))
+        .filter(Boolean)
+    ),
+  ].sort();
+
+  return {
+    brands,
+    skinToneTags,
+    statuses: ["active", "inactive"],
+  };
+}
+
+function buildRecordDateQuery(filters) {
+  const startDate = toIsoString(filters && filters.startDate);
+  const endDate = toIsoString(filters && filters.endDate);
+
+  if (!startDate && !endDate) {
+    return null;
+  }
+
+  const query = {};
+
+  if (startDate) {
+    query.$gte = startDate;
+  }
+
+  if (endDate) {
+    query.$lt = endDate;
+  }
+
+  return Object.keys(query).length ? query : null;
+}
+
+function buildAdminRecordQuery(filters, fields) {
+  const safeFilters = filters || {};
+  const query = {};
+
+  fields.forEach((field) => {
+    if (safeFilters[field]) {
+      query[field] = safeFilters[field];
+    }
+  });
+
+  const createdAt = buildRecordDateQuery(safeFilters);
+  if (createdAt) {
+    query.createdAt = createdAt;
+  }
+
+  return query;
+}
+
+function mapTestRecordListItem(record) {
+  return {
+    testId: record._id,
+    openidMasked: maskOpenId(record.openid),
+    status: stringField(record.status, "unknown"),
+    generationStatus: stringField(record.generationStatus, ""),
+    safetyStatus: stringField(record.safetyStatus, ""),
+    qualityStatus: stringField(record.qualityStatus, ""),
+    currentReportId: stringField(record.currentReportId, ""),
+    previewRegenerateCount: numberField(record.previewRegenerateCount, 0),
+    maxPreviewRegenerateCount: numberField(record.maxPreviewRegenerateCount, 0),
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+function mapTestRecordDetail(record) {
+  return {
+    testId: record._id,
+    openid: stringField(record.openid, ""),
+    status: stringField(record.status, "unknown"),
+    currentReportId: stringField(record.currentReportId, ""),
+    selfieFileId: stringField(record.selfieFileId, ""),
+    preferences: clone(record.preferenceSummary || {}),
+    statuses: {
+      safetyStatus: stringField(record.safetyStatus, ""),
+      qualityStatus: stringField(record.qualityStatus, ""),
+      generationStatus: stringField(record.generationStatus, ""),
+    },
+    lifecycle: {
+      createdAt: stringField(record.createdAt, ""),
+      updatedAt: stringField(record.updatedAt, ""),
+      preferenceSubmittedAt: stringField(record.preferenceSubmittedAt, ""),
+      generationStartedAt: stringField(record.generationStartedAt, ""),
+      generationCompletedAt: stringField(record.generationCompletedAt, ""),
+      reportReadyAt: stringField(record.reportReadyAt, ""),
+    },
+    previewRegenerateCount: numberField(record.previewRegenerateCount, 0),
+    maxPreviewRegenerateCount: numberField(record.maxPreviewRegenerateCount, 0),
+  };
+}
+
+function mapReportRecordListItem(record) {
+  return {
+    reportId: record._id,
+    testId: stringField(record.testId, ""),
+    openidMasked: maskOpenId(record.openid),
+    status: stringField(record.status, "unknown"),
+    locked: !record.unlockedAt,
+    unlockedAt: stringField(record.unlockedAt, ""),
+    hiddenAt: stringField(record.hiddenAt, ""),
+    flaggedAt: stringField(record.flaggedAt, ""),
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+function mapReportRecordDetail(record) {
+  return {
+    reportId: record._id,
+    testId: stringField(record.testId, ""),
+    openid: stringField(record.openid, ""),
+    status: stringField(record.status, "unknown"),
+    unlock: {
+      unlocked: Boolean(record.unlockedAt),
+      unlockedAt: stringField(record.unlockedAt, ""),
+    },
+    assets: {
+      previewImages: Array.isArray(record.previewImages) ? clone(record.previewImages) : [],
+      paidImages: Array.isArray(record.paidImages) ? clone(record.paidImages) : [],
+      shareCardImages: Array.isArray(record.shareCardImages) ? clone(record.shareCardImages) : [],
+    },
+    snapshot: clone(record.snapshot || {}),
+    audit: {
+      hiddenAt: stringField(record.hiddenAt, ""),
+      hiddenReason: stringField(record.hiddenReason, ""),
+      flaggedAt: stringField(record.flaggedAt, ""),
+      flaggedReason: stringField(record.flaggedReason, ""),
+      deletedAt: stringField(record.deletedAt, ""),
+    },
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+async function appendAdminAction(runtime, operation, targetType, targetId, before, after) {
+  const actionId = runtime.id();
+  await runtime.db.collection("admin_actions").add({
+    data: {
+      _id: actionId,
+      operation,
+      targetType,
+      targetId,
+      before: before === undefined ? null : clone(before),
+      after: after === undefined ? null : clone(after),
+      createdAt: runtime.now().toISOString(),
+    },
+  });
+}
+
+function parseCsvLine(line) {
+  return String(line || "")
+    .split(",")
+    .map((item) => item.trim());
+}
+
+function toCsvValue(value) {
+  const text = String(value === undefined || value === null ? "" : value);
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
 }
 
 async function readSession(runtime, token) {
@@ -354,6 +844,274 @@ async function getOverview(event, deps) {
   });
 }
 
+async function listLipsticks(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const records = await listCollectionRecords(runtime, "lipsticks");
+  const filtered = filterLipsticks(records, data.filters);
+
+  return ok({
+    records: filtered.sort((left, right) =>
+      `${left.brand || ""}${left.shadeCode || ""}`.localeCompare(`${right.brand || ""}${right.shadeCode || ""}`)
+    ),
+    availableFilters: buildLipstickFilters(records),
+  });
+}
+
+async function saveLipstick(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const input = data.lipstick || {};
+  const lipstickId = normalizeText(input._id);
+  const records = await listCollectionRecords(runtime, "lipsticks");
+  const previous = lipstickId ? (await runtime.db.collection("lipsticks").doc(lipstickId).get()).data || null : null;
+  const { lipstick, errors } = validateLipstickInput(input, records, lipstickId || "");
+
+  if (errors.length) {
+    return fail("INVALID_LIPSTICK", "Lipstick validation failed", { errors });
+  }
+
+  const now = runtime.now().toISOString();
+  const nextId = lipstickId || runtime.id();
+  const nextRecord = {
+    _id: nextId,
+    ...lipstick,
+    createdAt: previous && previous.createdAt ? previous.createdAt : now,
+    updatedAt: now,
+  };
+
+  await runtime.db.collection("lipsticks").doc(nextId).set({
+    data: nextRecord,
+  });
+
+  await appendAdminAction(
+    runtime,
+    previous ? "lipstick_update" : "lipstick_create",
+    "lipstick",
+    nextId,
+    previous || null,
+    nextRecord
+  );
+
+  return ok({
+    record: nextRecord,
+  });
+}
+
+async function setLipstickStatus(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const lipstickId = normalizeText(data.lipstickId);
+  const status = normalizeStatus(data.status);
+  const previous = lipstickId ? (await runtime.db.collection("lipsticks").doc(lipstickId).get()).data || null : null;
+
+  if (!previous) {
+    return fail("RESOURCE_NOT_FOUND", "Lipstick record was not found");
+  }
+
+  if (!["active", "inactive"].includes(status)) {
+    return fail("INVALID_LIPSTICK", "status must be active or inactive", {
+      errors: ["status must be active or inactive"],
+    });
+  }
+
+  const nextRecord = {
+    ...previous,
+    status,
+    updatedAt: runtime.now().toISOString(),
+  };
+
+  await runtime.db.collection("lipsticks").doc(lipstickId).set({
+    data: nextRecord,
+  });
+
+  await appendAdminAction(
+    runtime,
+    "lipstick_status_change",
+    "lipstick",
+    lipstickId,
+    previous,
+    nextRecord
+  );
+
+  return ok({
+    record: nextRecord,
+  });
+}
+
+async function importLipsticksCsv(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const csvText = String(data.csvText || "");
+  const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) {
+    return fail("INVALID_CSV_IMPORT", "CSV must contain a header and at least one row", {
+      errors: [{ rowNumber: 1, reason: "No data rows found" }],
+    });
+  }
+
+  const headers = parseCsvLine(lines[0]);
+  const requiredHeaders = [
+    "brand",
+    "shadeName",
+    "shadeCode",
+    "colorHex",
+    "skinToneTags",
+    "budgetMin",
+    "budgetMax",
+    "status",
+  ];
+
+  if (headers.join(",") !== requiredHeaders.join(",")) {
+    return fail("INVALID_CSV_IMPORT", "CSV header does not match the expected template", {
+      errors: [{ rowNumber: 1, reason: "Unexpected header columns" }],
+    });
+  }
+
+  const existingRecords = await listCollectionRecords(runtime, "lipsticks");
+  const stagedRecords = [];
+  const seenKeys = new Set(
+    existingRecords.map((item) =>
+      [normalizeText(item.brand), normalizeText(item.shadeName), normalizeText(item.shadeCode)].join("::")
+    )
+  );
+  const errors = [];
+
+  for (let index = 1; index < lines.length; index += 1) {
+    const values = parseCsvLine(lines[index]);
+    const record = Object.fromEntries(headers.map((header, valueIndex) => [header, values[valueIndex] || ""]));
+    const rowNumber = index + 1;
+    const key = [
+      normalizeText(record.brand),
+      normalizeText(record.shadeName),
+      normalizeText(record.shadeCode),
+    ].join("::");
+    const validation = validateLipstickInput(record, [], "");
+
+    if (seenKeys.has(key)) {
+      validation.errors.push("duplicate brand/shadeName/shadeCode combination");
+    }
+
+    if (validation.errors.length) {
+      errors.push({
+        rowNumber,
+        reason: validation.errors.join("; "),
+      });
+      continue;
+    }
+
+    seenKeys.add(key);
+    stagedRecords.push(validation.lipstick);
+  }
+
+  if (errors.length) {
+    return fail("INVALID_CSV_IMPORT", "CSV import validation failed", {
+      errors,
+    });
+  }
+
+  const importedRecords = [];
+  const now = runtime.now().toISOString();
+  for (const lipstick of stagedRecords) {
+    const lipstickId = runtime.id();
+    const nextRecord = {
+      _id: lipstickId,
+      ...lipstick,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await runtime.db.collection("lipsticks").doc(lipstickId).set({
+      data: nextRecord,
+    });
+    importedRecords.push(nextRecord);
+  }
+
+  await appendAdminAction(
+    runtime,
+    "lipstick_import_csv",
+    "lipstick",
+    "batch",
+    null,
+    {
+      importedCount: importedRecords.length,
+      records: importedRecords,
+    }
+  );
+
+  return ok({
+    importedCount: importedRecords.length,
+  });
+}
+
+async function exportLipsticksCsv(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const records = await listCollectionRecords(runtime, "lipsticks");
+  const header = [
+    "brand",
+    "shadeName",
+    "shadeCode",
+    "colorHex",
+    "skinToneTags",
+    "budgetMin",
+    "budgetMax",
+    "status",
+  ];
+  const rows = records
+    .sort((left, right) =>
+      `${left.brand || ""}${left.shadeCode || ""}`.localeCompare(`${right.brand || ""}${right.shadeCode || ""}`)
+    )
+    .map((item) =>
+      [
+        item.brand,
+        item.shadeName,
+        item.shadeCode,
+        item.colorHex,
+        normalizeTags(item.skinToneTags).join("|"),
+        item.budgetMin,
+        item.budgetMax,
+        item.status,
+      ]
+        .map(toCsvValue)
+        .join(",")
+    );
+
+  return ok({
+    fileName: `lipsticks-${runtime.now().toISOString().slice(0, 10)}.csv`,
+    csvText: [header.join(","), ...rows].join("\n"),
+  });
+}
+
 async function main(event, context, deps) {
   const action = event && event.action;
 
@@ -374,6 +1132,26 @@ async function main(event, context, deps) {
       return await getOverview(event, deps);
     }
 
+    if (action === "listLipsticks") {
+      return await listLipsticks(event, deps);
+    }
+
+    if (action === "saveLipstick") {
+      return await saveLipstick(event, deps);
+    }
+
+    if (action === "setLipstickStatus") {
+      return await setLipstickStatus(event, deps);
+    }
+
+    if (action === "importLipsticksCsv") {
+      return await importLipsticksCsv(event, deps);
+    }
+
+    if (action === "exportLipsticksCsv") {
+      return await exportLipsticksCsv(event, deps);
+    }
+
     return unsupported(action);
   } catch (error) {
     return fail("ADMIN_FUNCTION_ERROR", error.message);
@@ -385,3 +1163,8 @@ exports.login = login;
 exports.logout = logout;
 exports.getShell = getShell;
 exports.getOverview = getOverview;
+exports.listLipsticks = listLipsticks;
+exports.saveLipstick = saveLipstick;
+exports.setLipstickStatus = setLipstickStatus;
+exports.importLipsticksCsv = importLipsticksCsv;
+exports.exportLipsticksCsv = exportLipsticksCsv;

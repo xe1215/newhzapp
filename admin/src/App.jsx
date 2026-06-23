@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { getOverview, getShell, login, logout } from "./lib/admin-api";
+import {
+  exportLipsticksCsv,
+  getOverview,
+  getShell,
+  importLipsticksCsv,
+  listLipsticks,
+  login,
+  logout,
+  saveLipstick,
+  setLipstickStatus,
+} from "./lib/admin-api";
 
 const MODULES = [
   { key: "overview", label: "Operations Overview", path: "/overview" },
@@ -58,6 +68,381 @@ function MetricCard({ label, value }) {
       <p className="metric-label">{label}</p>
       <strong className="metric-value">{value}</strong>
     </article>
+  );
+}
+
+const EMPTY_LIPSTICK_FORM = {
+  brand: "",
+  shadeName: "",
+  shadeCode: "",
+  colorHex: "",
+  skinToneTags: "",
+  budgetMin: "",
+  budgetMax: "",
+  status: "active",
+};
+
+function LipstickLibraryPage({ token }) {
+  const [filters, setFilters] = useState({
+    brand: "",
+    skinToneTag: "",
+    budgetMin: "",
+    budgetMax: "",
+    status: "",
+  });
+  const [records, setRecords] = useState([]);
+  const [availableFilters, setAvailableFilters] = useState({
+    brands: [],
+    skinToneTags: [],
+    statuses: ["active", "inactive"],
+  });
+  const [form, setForm] = useState(EMPTY_LIPSTICK_FORM);
+  const [csvText, setCsvText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState("");
+  const [successText, setSuccessText] = useState("");
+
+  function resetForm() {
+    setForm(EMPTY_LIPSTICK_FORM);
+  }
+
+  function applyRecordToForm(record) {
+    setForm({
+      _id: record._id,
+      brand: record.brand || "",
+      shadeName: record.shadeName || "",
+      shadeCode: record.shadeCode || "",
+      colorHex: record.colorHex || "",
+      skinToneTags: Array.isArray(record.skinToneTags) ? record.skinToneTags.join("|") : "",
+      budgetMin: record.budgetMin ?? "",
+      budgetMax: record.budgetMax ?? "",
+      status: record.status || "active",
+    });
+  }
+
+  async function loadData(currentFilters) {
+    setLoading(true);
+    setErrorText("");
+
+    try {
+      const data = await listLipsticks(token, currentFilters);
+      setRecords(data.records || []);
+      setAvailableFilters(
+        data.availableFilters || {
+          brands: [],
+          skinToneTags: [],
+          statuses: ["active", "inactive"],
+        }
+      );
+    } catch (error) {
+      setErrorText(error.message || "Unable to load the lipstick library.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData(filters);
+  }, [token, filters.brand, filters.skinToneTag, filters.budgetMin, filters.budgetMax, filters.status]);
+
+  async function handleSave(event) {
+    event.preventDefault();
+    setErrorText("");
+    setSuccessText("");
+
+    try {
+      await saveLipstick(token, {
+        ...form,
+        skinToneTags: String(form.skinToneTags || "")
+          .split("|")
+          .map((item) => item.trim())
+          .filter(Boolean),
+        budgetMin: Number(form.budgetMin),
+        budgetMax: Number(form.budgetMax),
+      });
+      setSuccessText("Lipstick saved.");
+      resetForm();
+      await loadData(filters);
+    } catch (error) {
+      setErrorText(error.message || "Unable to save lipstick.");
+    }
+  }
+
+  async function handleToggleStatus(record) {
+    setErrorText("");
+    setSuccessText("");
+
+    try {
+      await setLipstickStatus(token, record._id, record.status === "active" ? "inactive" : "active");
+      setSuccessText("Lipstick status updated.");
+      await loadData(filters);
+    } catch (error) {
+      setErrorText(error.message || "Unable to update lipstick status.");
+    }
+  }
+
+  async function handleImportCsv() {
+    setErrorText("");
+    setSuccessText("");
+
+    try {
+      const data = await importLipsticksCsv(token, csvText);
+      setSuccessText(`Imported ${data.importedCount} lipsticks.`);
+      setCsvText("");
+      await loadData(filters);
+    } catch (error) {
+      setErrorText(error.message || "Unable to import CSV.");
+    }
+  }
+
+  async function handleExportCsv() {
+    setErrorText("");
+    setSuccessText("");
+
+    try {
+      const data = await exportLipsticksCsv(token);
+      const blob = new Blob([data.csvText], { type: "text/csv;charset=utf-8" });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = data.fileName || "lipsticks.csv";
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      setSuccessText("CSV export downloaded.");
+    } catch (error) {
+      setErrorText(error.message || "Unable to export CSV.");
+    }
+  }
+
+  return (
+    <section className="module-panel">
+      <header className="module-header overview-header">
+        <div>
+          <p className="module-eyebrow">Lipstick Library</p>
+          <h2>Lipstick Library</h2>
+          <p className="module-copy">
+            Manage recommendation-ready lipstick records with protected create, edit, status, and CSV flows.
+          </p>
+        </div>
+        <div className="toolbar-actions">
+          <button type="button" className="ghost-button" onClick={handleExportCsv}>
+            Export CSV
+          </button>
+        </div>
+      </header>
+
+      <div className="filters-grid">
+        <label className="field-stack">
+          <span>Brand</span>
+          <select
+            className="field-input"
+            value={filters.brand}
+            onChange={(event) => setFilters((current) => ({ ...current, brand: event.target.value }))}
+          >
+            <option value="">All brands</option>
+            {availableFilters.brands.map((brand) => (
+              <option key={brand} value={brand}>
+                {brand}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-stack">
+          <span>Skin tone</span>
+          <select
+            className="field-input"
+            value={filters.skinToneTag}
+            onChange={(event) => setFilters((current) => ({ ...current, skinToneTag: event.target.value }))}
+          >
+            <option value="">All tags</option>
+            {availableFilters.skinToneTags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-stack">
+          <span>Budget min</span>
+          <input
+            className="field-input"
+            type="number"
+            value={filters.budgetMin}
+            onChange={(event) => setFilters((current) => ({ ...current, budgetMin: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Budget max</span>
+          <input
+            className="field-input"
+            type="number"
+            value={filters.budgetMax}
+            onChange={(event) => setFilters((current) => ({ ...current, budgetMax: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Status</span>
+          <select
+            className="field-input"
+            value={filters.status}
+            onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
+          >
+            <option value="">All statuses</option>
+            {availableFilters.statuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {loading ? <p className="module-copy">Loading lipstick library...</p> : null}
+      {errorText ? <p className="error-text">{errorText}</p> : null}
+      {successText ? <p className="success-text">{successText}</p> : null}
+
+      <div className="library-layout">
+        <section className="subpanel">
+          <h3>Create or edit lipstick</h3>
+          <form className="editor-form" onSubmit={handleSave}>
+            <label className="field-stack">
+              <span>Brand</span>
+              <input
+                className="field-input"
+                value={form.brand}
+                onChange={(event) => setForm((current) => ({ ...current, brand: event.target.value }))}
+              />
+            </label>
+            <label className="field-stack">
+              <span>Shade name</span>
+              <input
+                className="field-input"
+                value={form.shadeName}
+                onChange={(event) => setForm((current) => ({ ...current, shadeName: event.target.value }))}
+              />
+            </label>
+            <label className="field-stack">
+              <span>Shade code</span>
+              <input
+                className="field-input"
+                value={form.shadeCode}
+                onChange={(event) => setForm((current) => ({ ...current, shadeCode: event.target.value }))}
+              />
+            </label>
+            <label className="field-stack">
+              <span>Color hex</span>
+              <input
+                className="field-input"
+                value={form.colorHex}
+                onChange={(event) => setForm((current) => ({ ...current, colorHex: event.target.value }))}
+                placeholder="#C45A76"
+              />
+            </label>
+            <label className="field-stack">
+              <span>Skin tone tags</span>
+              <input
+                className="field-input"
+                value={form.skinToneTags}
+                onChange={(event) => setForm((current) => ({ ...current, skinToneTags: event.target.value }))}
+                placeholder="warm|neutral"
+              />
+            </label>
+            <label className="field-stack">
+              <span>Budget min</span>
+              <input
+                className="field-input"
+                type="number"
+                value={form.budgetMin}
+                onChange={(event) => setForm((current) => ({ ...current, budgetMin: event.target.value }))}
+              />
+            </label>
+            <label className="field-stack">
+              <span>Budget max</span>
+              <input
+                className="field-input"
+                type="number"
+                value={form.budgetMax}
+                onChange={(event) => setForm((current) => ({ ...current, budgetMax: event.target.value }))}
+              />
+            </label>
+            <label className="field-stack">
+              <span>Status</span>
+              <select
+                className="field-input"
+                value={form.status}
+                onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
+              >
+                <option value="active">active</option>
+                <option value="inactive">inactive</option>
+              </select>
+            </label>
+            <div className="form-actions">
+              <button type="submit" className="primary-button">
+                Save lipstick
+              </button>
+              <button type="button" className="ghost-button" onClick={resetForm}>
+                Reset
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="subpanel">
+          <h3>CSV import</h3>
+          <p className="module-copy">Paste CSV rows using the protected import flow. The whole batch is validated before write.</p>
+          <textarea
+            className="csv-textarea"
+            value={csvText}
+            onChange={(event) => setCsvText(event.target.value)}
+            placeholder="brand,shadeName,shadeCode,colorHex,skinToneTags,budgetMin,budgetMax,status"
+          />
+          <button type="button" className="primary-button" onClick={handleImportCsv}>
+            Import CSV
+          </button>
+        </section>
+      </div>
+
+      <section className="subpanel">
+        <h3>Library records</h3>
+        <div className="table-shell">
+          <table className="record-table">
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Shade</th>
+                <th>Code</th>
+                <th>Skin tone</th>
+                <th>Budget</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map((record) => (
+                <tr key={record._id}>
+                  <td>{record.brand}</td>
+                  <td>{record.shadeName}</td>
+                  <td>{record.shadeCode}</td>
+                  <td>{(record.skinToneTags || []).join(", ")}</td>
+                  <td>
+                    ¥{record.budgetMin} - ¥{record.budgetMax}
+                  </td>
+                  <td>{record.status}</td>
+                  <td className="row-actions">
+                    <button type="button" className="ghost-button" onClick={() => applyRecordToForm(record)}>
+                      Edit
+                    </button>
+                    <button type="button" className="ghost-button" onClick={() => handleToggleStatus(record)}>
+                      {record.status === "active" ? "Deactivate" : "Activate"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
   );
 }
 
@@ -268,7 +653,7 @@ function ShellLayout({ shellData, token, onLogout }) {
         </div>
         <Routes>
           <Route path="/overview" element={<OverviewPage token={token} />} />
-          <Route path="/lipsticks" element={<ModulePage title="Lipstick Library" />} />
+          <Route path="/lipsticks" element={<LipstickLibraryPage token={token} />} />
           <Route path="/tests" element={<ModulePage title="Test Records" />} />
           <Route path="/reports" element={<ModulePage title="Report Records" />} />
           <Route path="/orders" element={<ModulePage title="Orders and Refund Handling" />} />
