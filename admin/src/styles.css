@@ -174,3 +174,103 @@ input {
   background: rgba(255, 252, 247, 0.9);
   border: 1px solid rgba(94, 69, 37, 0.12);
 }
+
+.overview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.range-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.range-chip {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(111, 70, 23, 0.18);
+  background: #fffaf4;
+  color: #6f4617;
+  cursor: pointer;
+}
+
+.range-chip.active {
+  background: #6f4617;
+  color: #fff6ec;
+}
+
+.metrics-grid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metric-card,
+.subpanel,
+.empty-state {
+  border-radius: 20px;
+  border: 1px solid rgba(94, 69, 37, 0.12);
+  background: #fffdf9;
+}
+
+.metric-card {
+  padding: 18px;
+}
+
+.metric-label {
+  margin: 0 0 8px;
+  color: #7b6b5d;
+  font-size: 14px;
+}
+
+.metric-value {
+  font-size: 28px;
+  color: #342313;
+}
+
+.overview-sections {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.subpanel {
+  padding: 20px;
+}
+
+.subpanel h3,
+.empty-state h3 {
+  margin-top: 0;
+  color: #342313;
+}
+
+.record-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.record-item {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(94, 69, 37, 0.1);
+  color: #5f5144;
+}
+
+.record-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.empty-state {
+  margin-top: 24px;
+  padding: 24px;
+}

@@ -1,0 +1,49 @@
+{
+  "collections": [
+    {
+      "name": "events",
+      "indexes": [
+        {
+          "name": "createdAt_eventName",
+          "fields": ["createdAt", "eventName"]
+        }
+      ]
+    },
+    {
+      "name": "orders",
+      "indexes": [
+        {
+          "name": "createdAt_status_refundStatus",
+          "fields": ["createdAt", "status", "refundStatus"]
+        }
+      ]
+    },
+    {
+      "name": "try_on_tests",
+      "indexes": [
+        {
+          "name": "createdAt_status",
+          "fields": ["createdAt", "status"]
+        }
+      ]
+    },
+    {
+      "name": "reports",
+      "indexes": [
+        {
+          "name": "createdAt_status_unlockedAt",
+          "fields": ["createdAt", "status", "unlockedAt"]
+        }
+      ]
+    },
+    {
+      "name": "provider_runs",
+      "indexes": [
+        {
+          "name": "createdAt_status_provider",
+          "fields": ["createdAt", "status", "provider"]
+        }
+      ]
+    }
+  ]
+}

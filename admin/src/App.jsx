@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { getShell, login, logout } from "./lib/admin-api";
+import { getOverview, getShell, login, logout } from "./lib/admin-api";
 
 const MODULES = [
   { key: "overview", label: "Operations Overview", path: "/overview" },
@@ -9,6 +9,13 @@ const MODULES = [
   { key: "reports", label: "Report Records", path: "/reports" },
   { key: "orders", label: "Orders and Refund Handling", path: "/orders" },
   { key: "logs", label: "Generation and Event Logs", path: "/logs" },
+];
+
+const OVERVIEW_RANGES = [
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "last7Days", label: "Last 7 days" },
+  { key: "last30Days", label: "Last 30 days" },
 ];
 
 function getStoredToken() {
@@ -41,6 +48,139 @@ function ModulePage({ title }) {
       <p className="module-copy">
         This protected route confirms the Developer Console shell can render after login.
       </p>
+    </section>
+  );
+}
+
+function MetricCard({ label, value }) {
+  return (
+    <article className="metric-card">
+      <p className="metric-label">{label}</p>
+      <strong className="metric-value">{value}</strong>
+    </article>
+  );
+}
+
+function OverviewPage({ token }) {
+  const [rangeKey, setRangeKey] = useState("today");
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [errorText, setErrorText] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setLoading(true);
+    setErrorText("");
+
+    getOverview(token, rangeKey)
+      .then((data) => {
+        if (!cancelled) {
+          setOverview(data);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setErrorText(error.message || "Unable to load overview data.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, rangeKey]);
+
+  const metrics = overview ? overview.metrics : null;
+
+  return (
+    <section className="module-panel">
+      <header className="module-header overview-header">
+        <div>
+          <p className="module-eyebrow">Operations Overview</p>
+          <h2>Operations Overview</h2>
+          <p className="module-copy">
+            Track visits, tests, generation health, payments, report views, share visits, and recent exceptions.
+          </p>
+        </div>
+        <div className="range-switcher">
+          {OVERVIEW_RANGES.map((range) => (
+            <button
+              key={range.key}
+              type="button"
+              className={range.key === rangeKey ? "range-chip active" : "range-chip"}
+              onClick={() => setRangeKey(range.key)}
+            >
+              {range.label}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {loading ? <p className="module-copy">Loading overview...</p> : null}
+      {errorText ? <p className="error-text">{errorText}</p> : null}
+
+      {!loading && !errorText && overview ? (
+        <>
+          {overview.empty ? (
+            <div className="empty-state">
+              <h3>No overview data for this range</h3>
+              <p>{overview.emptyMessage}</p>
+            </div>
+          ) : (
+            <div className="metrics-grid">
+              <MetricCard label="Visits" value={metrics.visits} />
+              <MetricCard label="Tests created" value={metrics.testsCreated} />
+              <MetricCard label="Generation success" value={metrics.generationSuccessCount} />
+              <MetricCard label="Generation failure" value={metrics.generationFailureCount} />
+              <MetricCard label="Paid orders" value={metrics.paidOrderCount} />
+              <MetricCard label="Revenue" value={`¥${(metrics.revenueCents / 100).toFixed(2)}`} />
+              <MetricCard label="Report views" value={metrics.reportViewCount} />
+              <MetricCard label="Share visits" value={metrics.shareVisitCount} />
+            </div>
+          )}
+
+          <div className="overview-sections">
+            <section className="subpanel">
+              <h3>Recent generation failures</h3>
+              {overview.recentGenerationFailures.length ? (
+                <ul className="record-list">
+                  {overview.recentGenerationFailures.map((item) => (
+                    <li key={item.runId} className="record-item">
+                      <strong>{item.errorCode || "FAILED"}</strong>
+                      <span>{item.provider}</span>
+                      <span>{item.errorMessage}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="module-copy">No recent generation failures.</p>
+              )}
+            </section>
+
+            <section className="subpanel">
+              <h3>Recent exception orders</h3>
+              {overview.recentExceptionOrders.length ? (
+                <ul className="record-list">
+                  {overview.recentExceptionOrders.map((item) => (
+                    <li key={item.orderId} className="record-item">
+                      <strong>{item.orderId}</strong>
+                      <span>{item.refundStatus}</span>
+                      <span>{item.refundReason || "No reason recorded"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="module-copy">No recent exception orders.</p>
+              )}
+            </section>
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }
@@ -83,7 +223,7 @@ function LoginPage({ onLogin, loading, errorText }) {
   );
 }
 
-function ShellLayout({ shellData, onLogout }) {
+function ShellLayout({ shellData, token, onLogout }) {
   const location = useLocation();
 
   return (
@@ -127,7 +267,7 @@ function ShellLayout({ shellData, onLogout }) {
           <div className="viewer-pill">{shellData.viewer.role}</div>
         </div>
         <Routes>
-          <Route path="/overview" element={<ModulePage title="Operations Overview" />} />
+          <Route path="/overview" element={<OverviewPage token={token} />} />
           <Route path="/lipsticks" element={<ModulePage title="Lipstick Library" />} />
           <Route path="/tests" element={<ModulePage title="Test Records" />} />
           <Route path="/reports" element={<ModulePage title="Report Records" />} />
@@ -227,5 +367,5 @@ export default function App() {
     return <LoginPage onLogin={handleLogin} loading={loading} errorText={errorText} />;
   }
 
-  return <ShellLayout shellData={shellData} onLogout={handleLogout} />;
+  return <ShellLayout shellData={shellData} token={token} onLogout={handleLogout} />;
 }

@@ -35,3 +35,7 @@ export function logout(token) {
 export function getShell(token) {
   return invokeAdmin("getShell", { token });
 }
+
+export function getOverview(token, rangeKey) {
+  return invokeAdmin("getOverview", { token, rangeKey });
+}
