@@ -1,0 +1,176 @@
+:root {
+  color: #1f2933;
+  background:
+    radial-gradient(circle at top right, rgba(214, 232, 255, 0.9), transparent 32%),
+    linear-gradient(180deg, #f5efe4 0%, #efe6d8 100%);
+  font-family: "Segoe UI", "PingFang SC", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.login-card {
+  width: min(460px, 100%);
+  padding: 36px;
+  border-radius: 28px;
+  background: rgba(255, 252, 247, 0.96);
+  border: 1px solid rgba(115, 88, 51, 0.14);
+  box-shadow: 0 28px 90px rgba(64, 45, 21, 0.12);
+}
+
+.login-kicker,
+.module-eyebrow,
+.topbar-kicker,
+.brand-kicker {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9a6b30;
+}
+
+.login-card h1,
+.brand-title,
+.topbar h2,
+.module-header h2 {
+  margin: 0;
+  color: #342313;
+}
+
+.login-copy,
+.brand-copy,
+.module-copy {
+  color: #5f5144;
+  line-height: 1.6;
+}
+
+.field-label {
+  display: block;
+  margin: 20px 0 8px;
+  font-weight: 600;
+}
+
+.field-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(104, 72, 30, 0.2);
+  background: #fffdf9;
+}
+
+.primary-button,
+.ghost-button {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.primary-button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #8c5a21 0%, #6b4317 100%);
+  color: #fff9f3;
+  font-weight: 700;
+}
+
+.ghost-button {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4e9dc;
+  text-transform: uppercase;
+}
+
+.error-text {
+  color: #b42318;
+  margin: 12px 0 0;
+}
+
+.admin-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+
+.sidebar {
+  padding: 28px;
+  background: linear-gradient(180deg, #382314 0%, #24160c 100%);
+  color: #f6eadf;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.nav-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nav-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  color: rgba(246, 234, 223, 0.82);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nav-item.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff7ef;
+}
+
+.shell-main {
+  padding: 28px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-radius: 24px;
+  background: rgba(255, 252, 247, 0.84);
+  border: 1px solid rgba(94, 69, 37, 0.12);
+}
+
+.viewer-pill {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #efe1cd;
+  color: #6f4617;
+  font-weight: 700;
+}
+
+.module-panel {
+  margin-top: 24px;
+  padding: 28px;
+  border-radius: 24px;
+  background: rgba(255, 252, 247, 0.9);
+  border: 1px solid rgba(94, 69, 37, 0.12);
+}

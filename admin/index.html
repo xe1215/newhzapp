@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Developer Console</title>
+    <script>
+      window.__ADMIN_CLOUD__ = {
+        callFunction(payload) {
+          if (!window.wx || !window.wx.cloud || !window.wx.cloud.callFunction) {
+            return Promise.reject(new Error("Cloud runtime is unavailable."));
+          }
+
+          return window.wx.cloud.callFunction(payload);
+        },
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+  </html>
