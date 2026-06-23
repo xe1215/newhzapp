@@ -33,7 +33,7 @@
 | 文件存储 | CloudBase 云存储 |
 | 图像服务 | 云函数或云托管封装外部图像模型 API |
 | 支付 | 微信支付 |
-| 运营后台 | 微信公众平台、微信支付商户平台、CloudBase 控制台 |
+| 开发者 Web 后台 | React + Vite，部署到 CloudBase 静态托管或 CloudBase Web 应用 |
 
 说明：
 
@@ -46,7 +46,8 @@
 - 小程序前端只负责展示和交互，不直接操作核心业务集合。
 - 业务状态、支付、权限、推荐、报告解锁放在云函数中。
 - 图像服务只负责调用外部图像模型生成无水印正式试色图；带水印预览图由云函数在本地基于无水印正式图后处理生成。
-- 第一版不建设独立 Web 管理后台，运营通过微信平台和 CloudBase 控制台完成。
+- 第一版建设独立开发者 Web 后台，但只服务开发者本人，不建设多管理员角色系统。
+- 后台前端不直接持有数据库管理权限，所有后台数据读写通过 `cloudfunctions/admin` 完成。
 - 第一版不引入复杂微服务，不单独建设 `preview_groups` 集合，用 `reports` 表达每一组预览。
 - 先替换 QuickStart 样板页面和样板云函数，再逐步拆分业务模块。
 
@@ -139,19 +140,25 @@ newhzapp/
       errors.js
 
   cloudfunctions/
+    admin/
     user/
     test/
     report/
     payment/
     share/
     cleanupExpiredData/
+
+  admin/
+    package.json
+    src/
 ```
 
 演进策略：
 
 - 第一步：把 `pages/index` 替换为产品首页，保留 `pages/example` 仅供开发期参考或直接删除。
 - 第二步：新增业务云函数，避免继续把业务逻辑塞进 `quickstartFunctions`。
-- 第三步：确认业务稳定后删除 QuickStart 示例代码和示例图片。
+- 第三步：新增 `admin/` Web 后台和 `cloudfunctions/admin` 后台 API。
+- 第四步：确认业务稳定后删除 QuickStart 示例代码和示例图片。
 
 ## 6. 云环境配置
 
@@ -375,6 +382,20 @@ share_visit
 refund_request
 ```
 
+### admin_actions
+
+记录开发者后台产生的写操作，便于排查误操作。不作为多管理员审计系统使用，第一版不提供独立审计页面。
+
+```text
+_id
+action
+targetType
+targetId
+beforeSnapshot
+afterSnapshot
+createdAt
+```
+
 ## 8. 云函数设计
 
 建议从 QuickStart 的单函数 switch 演进为业务函数分组。
@@ -494,27 +515,99 @@ swatches/{lipstickId}.jpg
 
 `reportId` 用于区分最多 4 组预览，避免图片覆盖。`clean` 文件是无水印正式图，写入 `reports.paidImages`；`watermark` 文件是本地加水印预览图，写入 `reports.previewImages`。
 
-## 11. 平台后台使用方式
+## 11. 开发者 Web 后台
 
-第一版不开发自建后台，按下面方式运营：
+第一版开发者后台是独立 Web 应用，放在仓库 `admin/` 目录，使用 React + Vite 构建，部署到 CloudBase 静态托管或 CloudBase Web 应用。后台 API 使用独立云函数 `cloudfunctions/admin`，与小程序用户侧云函数隔离。
+
+后台实施切片见 `docs/admin-plan.md`。
+
+### 11.1 登录与权限
+
+- 只支持单一开发者口令登录。
+- 不开放注册、多管理员、角色权限和细粒度操作日志。
+- 管理口令哈希、会话密钥等敏感配置放在云函数环境变量中。
+- 后台前端只保存登录态，不保存 CloudBase 管理密钥。
+- `cloudfunctions/admin` 必须校验后台会话后再访问数据库或云存储。
+- 第一版 `cloudfunctions/admin` 使用单个云函数按 `action` 分发后台 API，集中处理登录态校验和错误响应。
+- 所有后台写操作写入 `admin_actions`，记录操作类型、目标、前后快照和时间。
+
+### 11.2 后台模块
+
+| 模块 | 第一版能力 |
+| --- | --- |
+| 运营总览 | 今日、昨日、近 7 天、近 30 天访问、测试、生成、支付、报告查看、分享访问和异常概览 |
+| 口红库 | 搜索、新增、编辑、上架/下架、CSV 导入、CSV 导出、色卡图 fileId 维护 |
+| 测试记录 | 按 openid、状态、时间查看 `try_on_tests`，只读排查 |
+| 报告记录 | 查看 `reports` 详情、预览图/正式图链接、支付解锁状态；允许隐藏或标记异常 |
+| 订单与退款 | 查看 `orders`，记录退款处理状态、原因和开发者备注；不直接发起微信退款 |
+| 生成与事件日志 | 查看 `provider_runs` 和 `events`，事件支持按日期范围 CSV 导出 |
+
+建议的第一版 action 包括：
+
+```text
+login
+logout
+getOverview
+listLipsticks
+saveLipstick
+setLipstickStatus
+importLipsticksCsv
+exportLipsticksCsv
+listTests
+listReports
+updateReportFlag
+listOrders
+updateOrderHandling
+listProviderRuns
+listEvents
+exportEventsCsv
+```
+
+### 11.3 写操作边界
+
+- 允许写 `lipsticks`：新增、编辑、上架、下架、CSV 导入。
+- 允许写 `orders` 的退款处理状态、退款原因和开发者备注。
+- 允许写 `reports` 的隐藏状态或异常标记。
+- 所有写操作必须追加 `admin_actions` 记录。
+- `users`、`try_on_tests`、`provider_runs`、`events` 第一版只读。
+- 报告详情可查看图片链接用于排查，但不提供图片批量下载，也不在列表页直接铺图。
+
+### 11.4 数据展示规则
+
+- 列表页默认脱敏展示 openid，例如 `oabc...9xyz`。
+- 详情页可展示完整 openid，便于排查。
+- 搜索框支持输入完整 openid。
+- 复制按钮可复制完整 openid。
+- 事件日志 CSV 导出保留完整 openid，因为导出是开发者主动操作。
+- 后台第一版以桌面端使用为主，不做移动端适配；CSV 导入和表格维护按电脑操作设计。
+- 后台 UI 采用工具型高密度布局：左侧导航、顶部筛选、表格、详情抽屉或弹窗；不做营销页、大插画、渐变背景或欢迎页。
+
+### 11.5 口红库 CSV 导入
+
+- CSV 导入采用整批校验、整批写入；任一行校验失败时不写入任何数据。
+- 导入失败时返回错误行号和原因。
+- 必填字段：`brand`、`shadeName`、`colorHex`、`undertone`、`budgetRange`、`recommendationReason`、`status`。
+- `colorHex` 必须是 `#RRGGBB` 格式。
+- `status` 只能是 `active` 或 `inactive`。
+- 同品牌、色号名、色号编码重复时拒绝导入。
+- 导入成功后记录一次 `admin_actions`。
+
+### 11.6 运营总览聚合
+
+- 第一版运营总览实时查询并聚合业务集合，不建立预计算统计表。
+- 日期范围只支持今天、昨天、近 7 天、近 30 天。
+- 聚合数据来源包括 `events`、`orders`、`try_on_tests`、`reports`、`provider_runs`。
+- 聚合查询必须带时间条件；相关集合需要为 `createdAt`、状态字段和常用筛选字段建立索引。
+- 后续数据量增长后，再考虑增加 `daily_metrics` 等预计算统计集合。
+
+### 11.7 仍使用平台后台的事项
 
 | 需求 | 使用位置 |
 | --- | --- |
 | 小程序版本发布、类目、隐私协议 | 微信公众平台 / 微信开发者工具 |
-| 支付交易、退款、商户对账 | 微信支付商户平台 |
+| 支付交易、实际退款、商户对账 | 微信支付商户平台 |
 | 云函数日志、环境变量、定时任务 | CloudBase 控制台 |
-| 口红库维护 | CloudBase 云数据库 `lipsticks` 集合 |
-| 订单与报告排查 | CloudBase 云数据库 `orders`、`try_on_tests`、`reports` |
-| 图像供应商排查 | CloudBase 云数据库 `provider_runs` 和云函数日志 |
-| 漏斗统计 | CloudBase 云数据库 `events` 集合查询/导出 |
-| 图片文件排查 | CloudBase 云存储 |
-
-平台后台限制：
-
-- 不提供面向运营的定制化仪表盘。
-- 不提供多管理员角色和细粒度操作日志。
-- 数据维护依赖 CloudBase 控制台权限，请限制控制台成员范围。
-- 复杂统计、批量导入、可视化图表后续再建设独立后台。
+| 云存储底层文件排查 | CloudBase 云存储 |
 
 ## 12. 代码风格和架构模式
 
@@ -523,7 +616,8 @@ swatches/{lipstickId}.jpg
 - 云函数按业务域拆分，不把支付、报告、分享混在一个入口里。
 - 外部图像模型使用 provider adapter，统一输入输出和错误码。
 - 所有支付回调、换组、报告解锁逻辑必须幂等。
-- 第一版不实现自建后台权限系统。
+- 后台 API 集中放在 `cloudfunctions/admin`，所有接口都必须校验开发者登录态。
+- 第一版不实现多管理员权限系统。
 
 ## 13. 实施里程碑
 
