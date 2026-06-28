@@ -3,18 +3,21 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import {
   exportLipsticksCsv,
   flagReport,
+  getOrderDetail,
   getOverview,
   getReportDetail,
   getShell,
   getTestDetail,
   importLipsticksCsv,
   listLipsticks,
+  listOrders,
   listReports,
   listTests,
   login,
   logout,
   saveLipstick,
   setLipstickStatus,
+  updateOrderRefundHandling,
 } from "./lib/admin-api";
 
 const MODULES = [
@@ -465,6 +468,18 @@ function formatTimestamp(value) {
   return value || "Not recorded";
 }
 
+function copyText(value) {
+  if (!value) {
+    return Promise.resolve(false);
+  }
+
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    return navigator.clipboard.writeText(value).then(() => true, () => false);
+  }
+
+  return Promise.resolve(false);
+}
+
 function TestsPage({ token }) {
   const [filters, setFilters] = useState(emptyInvestigationFilters());
   const [items, setItems] = useState([]);
@@ -838,6 +853,269 @@ function ReportsPage({ token }) {
   );
 }
 
+function OrdersPage({ token }) {
+  const [filters, setFilters] = useState(emptyInvestigationFilters({ refundStatus: "", reportId: "", outTradeNo: "" }));
+  const [items, setItems] = useState([]);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [refundForm, setRefundForm] = useState({
+    refundStatus: "pending",
+    refundReason: "",
+    adminNote: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [successText, setSuccessText] = useState("");
+
+  async function loadOrdersData(currentFilters) {
+    setLoading(true);
+    setErrorText("");
+
+    try {
+      const data = await listOrders(token, currentFilters);
+      setItems(Array.isArray(data.items) ? data.items : []);
+    } catch (error) {
+      setErrorText(error.message || "Unable to load order records.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadOrdersData(filters);
+  }, [token, filters.openid, filters.status, filters.refundStatus, filters.reportId, filters.outTradeNo, filters.startDate, filters.endDate]);
+
+  async function handleSelect(orderId) {
+    setDetailLoading(true);
+    setErrorText("");
+
+    try {
+      const detail = await getOrderDetail(token, orderId);
+      setSelectedDetail(detail);
+      setRefundForm({
+        refundStatus: detail.refundStatus || "pending",
+        refundReason: detail.refundReason || "",
+        adminNote: detail.adminNote || "",
+      });
+    } catch (error) {
+      setErrorText(error.message || "Unable to load order detail.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleSaveRefund(event) {
+    event.preventDefault();
+    if (!selectedDetail) {
+      return;
+    }
+
+    setErrorText("");
+    setSuccessText("");
+
+    try {
+      await updateOrderRefundHandling(token, selectedDetail.orderId, refundForm);
+      setSuccessText("Refund handling record updated. Real funds must still be handled in the merchant portal.");
+      await handleSelect(selectedDetail.orderId);
+      await loadOrdersData(filters);
+    } catch (error) {
+      setErrorText(error.message || "Unable to update refund handling.");
+    }
+  }
+
+  async function handleCopyOpenid() {
+    if (!selectedDetail) {
+      return;
+    }
+
+    const copied = await copyText(selectedDetail.openid);
+    setSuccessText(copied ? "Copy openid completed." : "Copy openid is unavailable in this browser.");
+  }
+
+  return (
+    <section className="module-panel">
+      <header className="module-header overview-header">
+        <div>
+          <p className="module-eyebrow">Orders and Refund Handling</p>
+          <h2>Orders and Refund Handling</h2>
+          <p className="module-copy">
+            Search payment records, review delivery context, and track refund handling notes without triggering real refund APIs.
+          </p>
+        </div>
+      </header>
+
+      <div className="filters-grid">
+        <label className="field-stack">
+          <span>openid</span>
+          <input
+            className="field-input"
+            value={filters.openid}
+            onChange={(event) => setFilters((current) => ({ ...current, openid: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Payment status</span>
+          <input
+            className="field-input"
+            value={filters.status}
+            onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Refund status</span>
+          <input
+            className="field-input"
+            value={filters.refundStatus}
+            onChange={(event) => setFilters((current) => ({ ...current, refundStatus: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Report ID</span>
+          <input
+            className="field-input"
+            value={filters.reportId}
+            onChange={(event) => setFilters((current) => ({ ...current, reportId: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Merchant order</span>
+          <input
+            className="field-input"
+            value={filters.outTradeNo}
+            onChange={(event) => setFilters((current) => ({ ...current, outTradeNo: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>Start date</span>
+          <input
+            className="field-input"
+            type="datetime-local"
+            value={filters.startDate}
+            onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))}
+          />
+        </label>
+        <label className="field-stack">
+          <span>End date</span>
+          <input
+            className="field-input"
+            type="datetime-local"
+            value={filters.endDate}
+            onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))}
+          />
+        </label>
+      </div>
+
+      {loading ? <p className="module-copy">Loading order records...</p> : null}
+      {errorText ? <p className="error-text">{errorText}</p> : null}
+      {successText ? <p className="success-text">{successText}</p> : null}
+
+      <div className="library-layout">
+        <section className="subpanel">
+          <h3>Search results</h3>
+          <div className="table-shell">
+            <table className="record-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>openid</th>
+                  <th>Payment</th>
+                  <th>Refund status</th>
+                  <th>Report ID</th>
+                  <th>Merchant order</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.orderId}>
+                    <td>{item.orderId}</td>
+                    <td>{item.openidMasked}</td>
+                    <td>{item.status}</td>
+                    <td>{item.refundStatus}</td>
+                    <td>{item.reportId || "-"}</td>
+                    <td>{item.outTradeNo || "-"}</td>
+                    <td className="row-actions">
+                      <button type="button" className="ghost-button" onClick={() => handleSelect(item.orderId)}>
+                        View detail
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="subpanel">
+          <h3>Order detail</h3>
+          {detailLoading ? <p className="module-copy">Loading detail...</p> : null}
+          {!detailLoading && !selectedDetail ? (
+            <p className="module-copy">Select an order to inspect payment fields, linked report delivery, and refund handling notes.</p>
+          ) : null}
+          {selectedDetail ? (
+            <>
+              <div className="detail-stack">
+                <p><strong>Order ID:</strong> {selectedDetail.orderId}</p>
+                <p><strong>openid:</strong> {selectedDetail.openid}</p>
+                <p><strong>Payment status:</strong> {selectedDetail.status}</p>
+                <p><strong>Refund status:</strong> {selectedDetail.refundStatus}</p>
+                <p><strong>Amount:</strong> ¥{(selectedDetail.amountCents / 100).toFixed(2)} {selectedDetail.currency}</p>
+                <p><strong>Merchant order:</strong> {selectedDetail.outTradeNo || "-"}</p>
+                <p><strong>WeChat transaction:</strong> {selectedDetail.transactionId || "-"}</p>
+                <p><strong>Prepay ID:</strong> {selectedDetail.prepayId || "-"}</p>
+                <p><strong>Paid at:</strong> {formatTimestamp(selectedDetail.paidAt)}</p>
+                <p><strong>Unlocked at:</strong> {formatTimestamp(selectedDetail.unlockedAt)}</p>
+                <p><strong>Test ID:</strong> {selectedDetail.testId || "-"}</p>
+                <p><strong>Report ID:</strong> {selectedDetail.reportId || "-"}</p>
+              </div>
+              <div className="toolbar-actions">
+                <button type="button" className="ghost-button" onClick={handleCopyOpenid}>
+                  Copy openid
+                </button>
+              </div>
+              <form className="editor-form" onSubmit={handleSaveRefund}>
+                <label className="field-stack">
+                  <span>Refund status</span>
+                  <select
+                    className="field-input"
+                    value={refundForm.refundStatus}
+                    onChange={(event) => setRefundForm((current) => ({ ...current, refundStatus: event.target.value }))}
+                  >
+                    <option value="pending">pending</option>
+                    <option value="refunded">refunded</option>
+                    <option value="rejected">rejected</option>
+                  </select>
+                </label>
+                <label className="field-stack">
+                  <span>Refund reason</span>
+                  <textarea
+                    className="csv-textarea"
+                    value={refundForm.refundReason}
+                    onChange={(event) => setRefundForm((current) => ({ ...current, refundReason: event.target.value }))}
+                  />
+                </label>
+                <label className="field-stack">
+                  <span>Developer note</span>
+                  <textarea
+                    className="csv-textarea"
+                    value={refundForm.adminNote}
+                    onChange={(event) => setRefundForm((current) => ({ ...current, adminNote: event.target.value }))}
+                  />
+                </label>
+                <div className="form-actions">
+                  <button type="submit" className="primary-button">
+                    Save refund handling
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : null}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function OverviewPage({ token }) {
   const [rangeKey, setRangeKey] = useState("today");
   const [overview, setOverview] = useState(null);
@@ -1048,7 +1326,7 @@ function ShellLayout({ shellData, token, onLogout }) {
           <Route path="/lipsticks" element={<LipstickLibraryPage token={token} />} />
           <Route path="/tests" element={<TestsPage token={token} />} />
           <Route path="/reports" element={<ReportsPage token={token} />} />
-          <Route path="/orders" element={<ModulePage title="Orders and Refund Handling" />} />
+          <Route path="/orders" element={<OrdersPage token={token} />} />
           <Route path="/logs" element={<ModulePage title="Generation and Event Logs" />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Routes>

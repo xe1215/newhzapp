@@ -612,6 +612,44 @@ function mapReportRecordDetail(record) {
   };
 }
 
+function mapOrderRecordListItem(record) {
+  return {
+    orderId: record._id,
+    openidMasked: maskOpenId(record.openid),
+    status: stringField(record.status, "unknown"),
+    refundStatus: stringField(record.refundStatus, "none"),
+    reportId: stringField(record.reportId, ""),
+    outTradeNo: stringField(record.outTradeNo, ""),
+    amountCents: numberField(record.amountCents, 0),
+    currency: stringField(record.currency, "CNY"),
+    paidAt: stringField(record.paidAt, ""),
+    unlockedAt: stringField(record.unlockedAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+function mapOrderRecordDetail(record) {
+  return {
+    orderId: record._id,
+    openid: stringField(record.openid, ""),
+    status: stringField(record.status, "unknown"),
+    refundStatus: stringField(record.refundStatus, "none"),
+    refundReason: stringField(record.refundReason, ""),
+    adminNote: stringField(record.adminNote, ""),
+    amountCents: numberField(record.amountCents, 0),
+    currency: stringField(record.currency, "CNY"),
+    transactionId: stringField(record.transactionId, ""),
+    outTradeNo: stringField(record.outTradeNo, ""),
+    prepayId: stringField(record.prepayId, ""),
+    paidAt: stringField(record.paidAt, ""),
+    unlockedAt: stringField(record.unlockedAt, ""),
+    testId: stringField(record.testId, ""),
+    reportId: stringField(record.reportId, ""),
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
 async function appendAdminAction(runtime, operation, targetType, targetId, before, after) {
   const actionId = runtime.id();
   await runtime.db.collection("admin_actions").add({
@@ -1204,6 +1242,115 @@ async function getReportDetail(event, deps) {
   return ok(mapReportRecordDetail(record));
 }
 
+async function listOrders(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const query = buildAdminRecordQuery(data.filters, [
+    "openid",
+    "status",
+    "refundStatus",
+    "reportId",
+    "outTradeNo",
+  ]);
+  const result = await runtime.db
+    .collection("orders")
+    .where(query)
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+
+  return ok({
+    items: (result.data || []).map(mapOrderRecordListItem),
+  });
+}
+
+async function getOrderDetail(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const orderId = normalizeText(data.orderId);
+  if (!orderId) {
+    return fail("INVALID_PAYLOAD", "orderId is required");
+  }
+
+  const result = await runtime.db.collection("orders").doc(orderId).get();
+  const record = result.data || null;
+
+  if (!record || !record._id) {
+    return fail("RESOURCE_NOT_FOUND", "Order record was not found");
+  }
+
+  return ok(mapOrderRecordDetail(record));
+}
+
+async function updateOrderRefundHandling(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const orderId = normalizeText(data.orderId);
+  const refundStatus = normalizeStatus(data.refundStatus);
+  const refundReason = normalizeText(data.refundReason);
+  const adminNote = normalizeText(data.adminNote);
+
+  if (!orderId) {
+    return fail("INVALID_PAYLOAD", "orderId is required");
+  }
+
+  if (!["pending", "refunded", "rejected"].includes(refundStatus)) {
+    return fail("INVALID_REFUND_STATUS", "refundStatus must be pending, refunded, or rejected");
+  }
+
+  const previous = (await runtime.db.collection("orders").doc(orderId).get()).data || null;
+  if (!previous || !previous._id) {
+    return fail("RESOURCE_NOT_FOUND", "Order record was not found");
+  }
+
+  const nextRecord = {
+    ...previous,
+    refundStatus,
+    refundReason,
+    adminNote,
+    updatedAt: runtime.now().toISOString(),
+  };
+
+  await runtime.db.collection("orders").doc(orderId).set({
+    data: nextRecord,
+  });
+
+  await appendAdminAction(
+    runtime,
+    "order_refund_handling_update",
+    "order",
+    orderId,
+    previous,
+    nextRecord
+  );
+
+  return ok({
+    orderId,
+    refundStatus: nextRecord.refundStatus,
+    refundReason: nextRecord.refundReason,
+    adminNote: nextRecord.adminNote,
+    updatedAt: nextRecord.updatedAt,
+  });
+}
+
 async function flagReport(event, deps) {
   const runtime = getRuntime(deps);
   const data = getEventData(event);
@@ -1316,6 +1463,18 @@ async function main(event, context, deps) {
       return await getReportDetail(event, deps);
     }
 
+    if (action === "listOrders") {
+      return await listOrders(event, deps);
+    }
+
+    if (action === "getOrderDetail") {
+      return await getOrderDetail(event, deps);
+    }
+
+    if (action === "updateOrderRefundHandling") {
+      return await updateOrderRefundHandling(event, deps);
+    }
+
     if (action === "flagReport") {
       return await flagReport(event, deps);
     }
@@ -1340,4 +1499,7 @@ exports.listTests = listTests;
 exports.getTestDetail = getTestDetail;
 exports.listReports = listReports;
 exports.getReportDetail = getReportDetail;
+exports.listOrders = listOrders;
+exports.getOrderDetail = getOrderDetail;
+exports.updateOrderRefundHandling = updateOrderRefundHandling;
 exports.flagReport = flagReport;

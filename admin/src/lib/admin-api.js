@@ -76,6 +76,24 @@ export function getReportDetail(token, reportId) {
   return invokeAdmin("getReportDetail", { token, reportId });
 }
 
+export function listOrders(token, filters) {
+  return invokeAdmin("listOrders", { token, filters: filters || {} });
+}
+
+export function getOrderDetail(token, orderId) {
+  return invokeAdmin("getOrderDetail", { token, orderId });
+}
+
+export function updateOrderRefundHandling(token, orderId, payload) {
+  return invokeAdmin("updateOrderRefundHandling", {
+    token,
+    orderId,
+    refundStatus: payload.refundStatus,
+    refundReason: payload.refundReason,
+    adminNote: payload.adminNote,
+  });
+}
+
 export function flagReport(token, reportId, operation, reason) {
   return invokeAdmin("flagReport", {
     token,
