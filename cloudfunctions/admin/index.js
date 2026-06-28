@@ -650,6 +650,68 @@ function mapOrderRecordDetail(record) {
   };
 }
 
+function mapProviderRunListItem(record) {
+  return {
+    runId: record._id,
+    provider: stringField(record.provider, ""),
+    status: stringField(record.status, "unknown"),
+    errorCode: stringField(record.errorCode, ""),
+    retryIndex: numberField(record.retryIndex, 0),
+    testId: stringField(record.testId, ""),
+    reportId: stringField(record.reportId, ""),
+    openidMasked: maskOpenId(record.openid),
+    durationMs: numberField(record.durationMs, 0),
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+function mapProviderRunDetail(record) {
+  return {
+    runId: record._id,
+    provider: stringField(record.provider, ""),
+    status: stringField(record.status, "unknown"),
+    errorCode: stringField(record.errorCode, ""),
+    errorMessage: stringField(record.errorMessage, ""),
+    retryIndex: numberField(record.retryIndex, 0),
+    durationMs: numberField(record.durationMs, 0),
+    originalImageFileId: stringField(record.originalImageFileId, ""),
+    watermarkedImageFileId: stringField(record.watermarkedImageFileId, ""),
+    testId: stringField(record.testId, ""),
+    reportId: stringField(record.reportId, ""),
+    openid: stringField(record.openid, ""),
+    createdAt: stringField(record.createdAt, ""),
+    updatedAt: stringField(record.updatedAt, ""),
+  };
+}
+
+function mapEventListItem(record) {
+  return {
+    eventId: record._id,
+    eventName: stringField(record.eventName || record.type, ""),
+    openidMasked: maskOpenId(record.openid),
+    testId: stringField(record.testId, ""),
+    reportId: stringField(record.reportId, ""),
+    orderId: stringField(record.orderId, ""),
+    shareId: stringField(record.shareId, ""),
+    createdAt: stringField(record.createdAt, ""),
+  };
+}
+
+function mapEventDetail(record) {
+  return {
+    eventId: record._id,
+    eventName: stringField(record.eventName || record.type, ""),
+    openid: stringField(record.openid, ""),
+    testId: stringField(record.testId, ""),
+    reportId: stringField(record.reportId, ""),
+    orderId: stringField(record.orderId, ""),
+    shareId: stringField(record.shareId, ""),
+    metadata: clone(record.metadata || {}),
+    createdAt: stringField(record.createdAt, ""),
+  };
+}
+
 async function appendAdminAction(runtime, operation, targetType, targetId, before, after) {
   const actionId = runtime.id();
   await runtime.db.collection("admin_actions").add({
@@ -1294,6 +1356,160 @@ async function getOrderDetail(event, deps) {
   return ok(mapOrderRecordDetail(record));
 }
 
+async function listProviderRuns(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const query = buildAdminRecordQuery(data.filters, [
+    "provider",
+    "status",
+    "errorCode",
+    "retryIndex",
+    "testId",
+    "reportId",
+    "openid",
+  ]);
+  const result = await runtime.db
+    .collection("provider_runs")
+    .where(query)
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+
+  return ok({
+    items: (result.data || []).map(mapProviderRunListItem),
+  });
+}
+
+async function getProviderRunDetail(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const runId = normalizeText(data.runId);
+  if (!runId) {
+    return fail("INVALID_PAYLOAD", "runId is required");
+  }
+
+  const result = await runtime.db.collection("provider_runs").doc(runId).get();
+  const record = result.data || null;
+
+  if (!record || !record._id) {
+    return fail("RESOURCE_NOT_FOUND", "Provider run record was not found");
+  }
+
+  return ok(mapProviderRunDetail(record));
+}
+
+async function listEvents(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const query = buildAdminRecordQuery(data.filters, [
+    "eventName",
+    "openid",
+    "testId",
+    "reportId",
+    "orderId",
+    "shareId",
+  ]);
+  const result = await runtime.db
+    .collection("events")
+    .where(query)
+    .orderBy("createdAt", "desc")
+    .limit(100)
+    .get();
+
+  return ok({
+    items: (result.data || []).map(mapEventListItem),
+  });
+}
+
+async function getEventDetail(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const eventId = normalizeText(data.eventId);
+  if (!eventId) {
+    return fail("INVALID_PAYLOAD", "eventId is required");
+  }
+
+  const result = await runtime.db.collection("events").doc(eventId).get();
+  const record = result.data || null;
+
+  if (!record || !record._id) {
+    return fail("RESOURCE_NOT_FOUND", "Event record was not found");
+  }
+
+  return ok(mapEventDetail(record));
+}
+
+async function exportEventsCsv(event, deps) {
+  const runtime = getRuntime(deps);
+  const data = getEventData(event);
+  const session = await requireSession(runtime, data.token);
+
+  if (session.code) {
+    return session;
+  }
+
+  const query = buildAdminRecordQuery(data.filters, [
+    "eventName",
+    "openid",
+    "testId",
+    "reportId",
+    "orderId",
+    "shareId",
+  ]);
+  const result = await runtime.db
+    .collection("events")
+    .where(query)
+    .orderBy("createdAt", "desc")
+    .limit(1000)
+    .get();
+  const events = result.data || [];
+  const header = ["eventId", "eventName", "openid", "testId", "reportId", "orderId", "shareId", "metadata", "createdAt"];
+  const rows = events.map((item) =>
+    [
+      item._id,
+      item.eventName || item.type || "",
+      item.openid || "",
+      item.testId || "",
+      item.reportId || "",
+      item.orderId || "",
+      item.shareId || "",
+      JSON.stringify(item.metadata || {}),
+      item.createdAt || "",
+    ]
+      .map(toCsvValue)
+      .join(",")
+  );
+
+  return ok({
+    fileName: `events-${runtime.now().toISOString().slice(0, 10)}.csv`,
+    csvText: [header.join(","), ...rows].join("\n"),
+  });
+}
+
 async function updateOrderRefundHandling(event, deps) {
   const runtime = getRuntime(deps);
   const data = getEventData(event);
@@ -1471,6 +1687,26 @@ async function main(event, context, deps) {
       return await getOrderDetail(event, deps);
     }
 
+    if (action === "listProviderRuns") {
+      return await listProviderRuns(event, deps);
+    }
+
+    if (action === "getProviderRunDetail") {
+      return await getProviderRunDetail(event, deps);
+    }
+
+    if (action === "listEvents") {
+      return await listEvents(event, deps);
+    }
+
+    if (action === "getEventDetail") {
+      return await getEventDetail(event, deps);
+    }
+
+    if (action === "exportEventsCsv") {
+      return await exportEventsCsv(event, deps);
+    }
+
     if (action === "updateOrderRefundHandling") {
       return await updateOrderRefundHandling(event, deps);
     }
@@ -1501,5 +1737,10 @@ exports.listReports = listReports;
 exports.getReportDetail = getReportDetail;
 exports.listOrders = listOrders;
 exports.getOrderDetail = getOrderDetail;
+exports.listProviderRuns = listProviderRuns;
+exports.getProviderRunDetail = getProviderRunDetail;
+exports.listEvents = listEvents;
+exports.getEventDetail = getEventDetail;
+exports.exportEventsCsv = exportEventsCsv;
 exports.updateOrderRefundHandling = updateOrderRefundHandling;
 exports.flagReport = flagReport;

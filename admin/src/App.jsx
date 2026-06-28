@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
+  exportEventsCsv,
   exportLipsticksCsv,
   flagReport,
+  getEventDetail,
   getOrderDetail,
   getOverview,
+  getProviderRunDetail,
   getReportDetail,
   getShell,
   getTestDetail,
   importLipsticksCsv,
+  listEvents,
   listLipsticks,
   listOrders,
+  listProviderRuns,
   listReports,
   listTests,
   login,
@@ -1116,6 +1121,312 @@ function OrdersPage({ token }) {
   );
 }
 
+function LogsPage({ token }) {
+  const [providerFilters, setProviderFilters] = useState({
+    provider: "",
+    status: "",
+    errorCode: "",
+    retryIndex: "",
+    testId: "",
+    reportId: "",
+    openid: "",
+    startDate: "",
+    endDate: "",
+  });
+  const [eventFilters, setEventFilters] = useState({
+    eventName: "",
+    openid: "",
+    testId: "",
+    reportId: "",
+    orderId: "",
+    shareId: "",
+    startDate: "",
+    endDate: "",
+  });
+  const [providerItems, setProviderItems] = useState([]);
+  const [eventItems, setEventItems] = useState([]);
+  const [selectedProviderRun, setSelectedProviderRun] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [successText, setSuccessText] = useState("");
+
+  async function loadLogsData(currentProviderFilters, currentEventFilters) {
+    setLoading(true);
+    setErrorText("");
+
+    try {
+      const [providerData, eventData] = await Promise.all([
+        listProviderRuns(token, {
+          ...currentProviderFilters,
+          retryIndex:
+            currentProviderFilters.retryIndex === "" ? "" : Number(currentProviderFilters.retryIndex),
+        }),
+        listEvents(token, currentEventFilters),
+      ]);
+      setProviderItems(Array.isArray(providerData.items) ? providerData.items : []);
+      setEventItems(Array.isArray(eventData.items) ? eventData.items : []);
+    } catch (error) {
+      setErrorText(error.message || "Unable to load generation and event logs.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadLogsData(providerFilters, eventFilters);
+  }, [
+    token,
+    providerFilters.provider,
+    providerFilters.status,
+    providerFilters.errorCode,
+    providerFilters.retryIndex,
+    providerFilters.testId,
+    providerFilters.reportId,
+    providerFilters.openid,
+    providerFilters.startDate,
+    providerFilters.endDate,
+    eventFilters.eventName,
+    eventFilters.openid,
+    eventFilters.testId,
+    eventFilters.reportId,
+    eventFilters.orderId,
+    eventFilters.shareId,
+    eventFilters.startDate,
+    eventFilters.endDate,
+  ]);
+
+  async function handleSelectProviderRun(runId) {
+    setDetailLoading(true);
+    setErrorText("");
+
+    try {
+      const detail = await getProviderRunDetail(token, runId);
+      setSelectedProviderRun(detail);
+    } catch (error) {
+      setErrorText(error.message || "Unable to load generation detail.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleSelectEvent(eventId) {
+    setDetailLoading(true);
+    setErrorText("");
+
+    try {
+      const detail = await getEventDetail(token, eventId);
+      setSelectedEvent(detail);
+    } catch (error) {
+      setErrorText(error.message || "Unable to load event detail.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleExportEventsCsv() {
+    setErrorText("");
+    setSuccessText("");
+
+    try {
+      const data = await exportEventsCsv(token, eventFilters);
+      const blob = new Blob([data.csvText], { type: "text/csv;charset=utf-8" });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = data.fileName || "events.csv";
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      setSuccessText("Export events CSV completed.");
+    } catch (error) {
+      setErrorText(error.message || "Unable to export events CSV.");
+    }
+  }
+
+  async function handleCopyOpenid(value) {
+    const copied = await copyText(value);
+    setSuccessText(copied ? "Copy openid completed." : "Copy openid is unavailable in this browser.");
+  }
+
+  return (
+    <section className="module-panel">
+      <header className="module-header overview-header">
+        <div>
+          <p className="module-eyebrow">Generation and Event Logs</p>
+          <h2>Generation and Event Logs</h2>
+          <p className="module-copy">
+            Investigate provider calls and user behavior with readonly logs, masked lists, full detail access, and CSV export.
+          </p>
+        </div>
+        <div className="toolbar-actions">
+          <button type="button" className="ghost-button" onClick={handleExportEventsCsv}>
+            Export events CSV
+          </button>
+        </div>
+      </header>
+
+      {loading ? <p className="module-copy">Loading logs...</p> : null}
+      {errorText ? <p className="error-text">{errorText}</p> : null}
+      {successText ? <p className="success-text">{successText}</p> : null}
+
+      <div className="overview-sections">
+        <section className="subpanel">
+          <h3>Provider runs</h3>
+          <div className="filters-grid">
+            <label className="field-stack">
+              <span>Provider</span>
+              <input className="field-input" value={providerFilters.provider} onChange={(event) => setProviderFilters((current) => ({ ...current, provider: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Status</span>
+              <input className="field-input" value={providerFilters.status} onChange={(event) => setProviderFilters((current) => ({ ...current, status: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Error code</span>
+              <input className="field-input" value={providerFilters.errorCode} onChange={(event) => setProviderFilters((current) => ({ ...current, errorCode: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Retry index</span>
+              <input className="field-input" type="number" value={providerFilters.retryIndex} onChange={(event) => setProviderFilters((current) => ({ ...current, retryIndex: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Test ID</span>
+              <input className="field-input" value={providerFilters.testId} onChange={(event) => setProviderFilters((current) => ({ ...current, testId: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Report ID</span>
+              <input className="field-input" value={providerFilters.reportId} onChange={(event) => setProviderFilters((current) => ({ ...current, reportId: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>openid</span>
+              <input className="field-input" value={providerFilters.openid} onChange={(event) => setProviderFilters((current) => ({ ...current, openid: event.target.value }))} />
+            </label>
+          </div>
+          <div className="table-shell">
+            <table className="record-table">
+              <thead>
+                <tr>
+                  <th>Run ID</th>
+                  <th>Provider</th>
+                  <th>Status</th>
+                  <th>Error</th>
+                  <th>openid</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {providerItems.map((item) => (
+                  <tr key={item.runId}>
+                    <td>{item.runId}</td>
+                    <td>{item.provider}</td>
+                    <td>{item.status}</td>
+                    <td>{item.errorCode || "-"}</td>
+                    <td>{item.openidMasked}</td>
+                    <td className="row-actions">
+                      <button type="button" className="ghost-button" onClick={() => handleSelectProviderRun(item.runId)}>
+                        View detail
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {selectedProviderRun ? (
+            <div className="detail-stack">
+              <p><strong>Run ID:</strong> {selectedProviderRun.runId}</p>
+              <p><strong>openid:</strong> {selectedProviderRun.openid}</p>
+              <p><strong>Duration:</strong> {selectedProviderRun.durationMs}ms</p>
+              <p><strong>Original fileId:</strong> {selectedProviderRun.originalImageFileId || "-"}</p>
+              <p><strong>Watermarked fileId:</strong> {selectedProviderRun.watermarkedImageFileId || "-"}</p>
+              <p><strong>Error code:</strong> {selectedProviderRun.errorCode || "-"}</p>
+              <p><strong>Error message:</strong> {selectedProviderRun.errorMessage || "-"}</p>
+              <div className="toolbar-actions">
+                <button type="button" className="ghost-button" onClick={() => handleCopyOpenid(selectedProviderRun.openid)}>
+                  Copy openid
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="subpanel">
+          <h3>Event logs</h3>
+          <div className="filters-grid">
+            <label className="field-stack">
+              <span>Event name</span>
+              <input className="field-input" value={eventFilters.eventName} onChange={(event) => setEventFilters((current) => ({ ...current, eventName: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>openid</span>
+              <input className="field-input" value={eventFilters.openid} onChange={(event) => setEventFilters((current) => ({ ...current, openid: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Test ID</span>
+              <input className="field-input" value={eventFilters.testId} onChange={(event) => setEventFilters((current) => ({ ...current, testId: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Report ID</span>
+              <input className="field-input" value={eventFilters.reportId} onChange={(event) => setEventFilters((current) => ({ ...current, reportId: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Order ID</span>
+              <input className="field-input" value={eventFilters.orderId} onChange={(event) => setEventFilters((current) => ({ ...current, orderId: event.target.value }))} />
+            </label>
+            <label className="field-stack">
+              <span>Share ID</span>
+              <input className="field-input" value={eventFilters.shareId} onChange={(event) => setEventFilters((current) => ({ ...current, shareId: event.target.value }))} />
+            </label>
+          </div>
+          <div className="table-shell">
+            <table className="record-table">
+              <thead>
+                <tr>
+                  <th>Event ID</th>
+                  <th>Event name</th>
+                  <th>openid</th>
+                  <th>Test ID</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventItems.map((item) => (
+                  <tr key={item.eventId}>
+                    <td>{item.eventId}</td>
+                    <td>{item.eventName}</td>
+                    <td>{item.openidMasked}</td>
+                    <td>{item.testId || "-"}</td>
+                    <td className="row-actions">
+                      <button type="button" className="ghost-button" onClick={() => handleSelectEvent(item.eventId)}>
+                        View detail
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {detailLoading ? <p className="module-copy">Loading detail...</p> : null}
+          {selectedEvent ? (
+            <div className="detail-stack">
+              <p><strong>Event ID:</strong> {selectedEvent.eventId}</p>
+              <p><strong>openid:</strong> {selectedEvent.openid}</p>
+              <p><strong>Event name:</strong> {selectedEvent.eventName}</p>
+              <p><strong>Metadata:</strong> {JSON.stringify(selectedEvent.metadata || {})}</p>
+              <div className="toolbar-actions">
+                <button type="button" className="ghost-button" onClick={() => handleCopyOpenid(selectedEvent.openid)}>
+                  Copy openid
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 function OverviewPage({ token }) {
   const [rangeKey, setRangeKey] = useState("today");
   const [overview, setOverview] = useState(null);
@@ -1327,7 +1638,7 @@ function ShellLayout({ shellData, token, onLogout }) {
           <Route path="/tests" element={<TestsPage token={token} />} />
           <Route path="/reports" element={<ReportsPage token={token} />} />
           <Route path="/orders" element={<OrdersPage token={token} />} />
-          <Route path="/logs" element={<ModulePage title="Generation and Event Logs" />} />
+          <Route path="/logs" element={<LogsPage token={token} />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Routes>
       </main>

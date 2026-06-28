@@ -84,6 +84,26 @@ export function getOrderDetail(token, orderId) {
   return invokeAdmin("getOrderDetail", { token, orderId });
 }
 
+export function listProviderRuns(token, filters) {
+  return invokeAdmin("listProviderRuns", { token, filters: filters || {} });
+}
+
+export function getProviderRunDetail(token, runId) {
+  return invokeAdmin("getProviderRunDetail", { token, runId });
+}
+
+export function listEvents(token, filters) {
+  return invokeAdmin("listEvents", { token, filters: filters || {} });
+}
+
+export function getEventDetail(token, eventId) {
+  return invokeAdmin("getEventDetail", { token, eventId });
+}
+
+export function exportEventsCsv(token, filters) {
+  return invokeAdmin("exportEventsCsv", { token, filters: filters || {} });
+}
+
 export function updateOrderRefundHandling(token, orderId, payload) {
   return invokeAdmin("updateOrderRefundHandling", {
     token,
