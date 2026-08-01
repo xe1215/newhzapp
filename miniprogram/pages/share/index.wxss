@@ -1,1 +1,2 @@
 @import "../shared.wxss";
+.share-page .title { color: #342620; font-family: Georgia,serif; font-weight: 700; }.share-card, .share-info { border-color: #ead8d0; background: #fffdf9; }.share-info .shade-name { color: #342620; }.share-info .copy { color: #6c5b53; line-height: 1.7; }

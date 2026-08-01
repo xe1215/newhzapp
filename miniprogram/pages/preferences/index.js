@@ -13,31 +13,33 @@ Page({
     feedback: "",
     options: {
       skinTone: [
-        { value: "cool", label: "Cool" },
-        { value: "neutral", label: "Neutral" },
-        { value: "warm", label: "Warm" },
+        { value: "cool", label: "冷白" },
+        { value: "neutral", label: "自然" },
+        { value: "warm", label: "暖白" },
       ],
       budget: [
-        { value: "low", label: "Low" },
-        { value: "mid", label: "Mid" },
-        { value: "high", label: "High" },
+        { value: "low", label: "100 元内" },
+        { value: "mid", label: "100-300" },
+        { value: "high", label: "300+" },
       ],
       scene: [
-        { value: "daily", label: "Daily" },
-        { value: "date", label: "Date" },
-        { value: "commute", label: "Commute" },
+        { value: "daily", label: "日常" },
+        { value: "date", label: "约会" },
+        { value: "commute", label: "通勤" },
       ],
       style: [
-        { value: "natural", label: "Natural" },
-        { value: "bold", label: "Bold" },
-        { value: "commute", label: "Commute" },
+        { value: "natural", label: "温柔" },
+        { value: "bold", label: "显气色" },
+        { value: "commute", label: "清冷" },
       ],
     },
   },
 
   onLoad(query) {
-    this.setData({
-      testId: getQueryValue(query, "testId"),
+    const testId = getQueryValue(query, "testId");
+
+    wx.redirectTo({
+      url: testId ? `/pages/upload/index?testId=${testId}` : "/pages/upload/index",
     });
   },
 

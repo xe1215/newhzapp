@@ -1,20 +1,29 @@
 <view class="page home-page">
-  <view class="hero">
-    <view class="eyebrow">AI lipstick try-on</view>
-    <view class="title">Find your lipstick match before buying.</view>
-    <view class="subtitle">Upload a selfie, pick your preferences, and preview three looks before unlocking the full recommendation report.</view>
-    <view class="actions">
-      <button class="primary-button" bindtap="startTest" disabled="{{!userReady}}">Start try-on</button>
-      <button class="secondary-button" bindtap="openReports">My reports</button>
+  <view class="top-row">
+    <view class="brand">
+      <view class="brand-title">NewHz</view>
+      <view class="brand-sub">AI 口红试色册</view>
+      <view class="brand-copy">上传一张自拍，看看哪支口红更适合你。</view>
     </view>
-    <view wx:if="{{loginError}}" class="notice">{{loginError}}</view>
+    <view class="icon-buttons"><view class="round-icon pressable" aria-label="打开报告" bindtap="openReports" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/report.svg" mode="aspectFit"/></view><view class="round-icon pressable" aria-label="打开我的" bindtap="openMy" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/user.svg" mode="aspectFit"/></view></view>
   </view>
 
-  <view class="flow">
-    <view class="flow-title">First version flow</view>
-    <view wx:for="{{steps}}" wx:key="*this" class="flow-row">
-      <text class="flow-index">{{index + 1}}</text>
-      <text class="flow-text">{{item}}</text>
-    </view>
+  <view class="pills"><view class="pill">已生成 3 张</view><view class="pill">待解锁 1 份</view></view>
+
+  <view class="start-ticket" bindtap="startTest">
+    <view><view class="ticket-eyebrow">START TRY-ON</view><view class="start-title">开始试色</view><view class="start-copy">拍一张自拍或从相册选择，生成你的专属唇色预览。</view></view>
+    <view class="start-action"><image class="icon-image-large" src="../../images/ui/plus.svg" mode="aspectFit"/></view>
+  </view>
+
+  <view wx:if="{{latestPreview}}" class="hero-stack"><view class="hero-card-flow {{deckMotion}}" bindtouchstart="onDeckTouchStart" bindtouchend="onDeckTouchEnd">
+    <view class="deck-stage {{deckDragging ? 'is-dragging' : ''}}" style="transform: translate3d({{deckDragOffset}}px, {{deckDragY}}px, 0) rotate({{deckDragRotation}}deg);"><view wx:for="{{homeDeck}}" wx:key="label" class="wide-card home-card {{item.stackSlot}}" bindtap="openLatestPreview"><view class="shade"></view><view class="simple-preview-label">试色 {{item.label}}</view><view wx:if="{{item.active}}" class="preview-chip">当前为免费预览</view><view class="preview-serial">0{{index + 1}} / 03</view></view></view>
+  </view></view>
+  <view wx:else class="home-empty-state"><view class="micro">NO PREVIEW YET</view><view class="home-empty-title">还没有试色预览</view><view class="section-sub">上传一张自拍后，试色 A、B、C 会在这里出现。</view><view class="empty-link pressable" bindtap="startTest" hover-class="pressable-hover">开始试色 <image class="icon-image" src="../../images/ui/arrow-right.svg" mode="aspectFit"/></view></view>
+  <view wx:if="{{loginError}}" class="feedback">{{loginError}}</view>
+
+  <view class="bottom-nav">
+    <view class="nav-item active pressable" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/home.svg" mode="aspectFit"/><text>首页</text></view>
+    <view class="nav-item pressable" bindtap="openReports" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/report.svg" mode="aspectFit"/><text>报告</text></view>
+    <view class="nav-item pressable" bindtap="openMy" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/user.svg" mode="aspectFit"/><text>我的</text></view>
   </view>
 </view>

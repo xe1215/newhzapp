@@ -7,6 +7,7 @@ Page({
     testId: "",
     reportId: "",
     retryIndex: 0,
+    phase: 0,
     generationFinished: false,
     statusText: "Generating try-on images...",
   },
@@ -56,15 +57,22 @@ Page({
           const totalCount = Number(data.totalCount || 3);
           this.setData({
             statusText: `Generating try-on images... ${completedCount}/${totalCount}`,
+            phase: completedCount > 1 ? 1 : 0,
             retryIndex: this.data.retryIndex + 1,
           });
           this.queueNextPoll();
           return;
         }
 
+        wx.setStorageSync("newhzLatestPreview", {
+          testId: data.testId,
+          reportId: data.reportId,
+        });
+
         wx.redirectTo({
           url: `/pages/preview/index?testId=${data.testId}&reportId=${data.reportId}`,
         });
+        this.setData({ phase: 2 });
         this.setData({
           generationFinished: true,
         });

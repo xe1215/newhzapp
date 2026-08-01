@@ -1,1 +1,11 @@
 @import "../shared.wxss";
+.flow-page { padding-top: 62rpx; }
+.progress-stage { margin-top: 110rpx; padding: 36rpx; border: 1rpx solid #ead8d0; border-radius: 42rpx; background: #fffdf9; box-shadow: 0 22rpx 58rpx rgba(67,45,34,.1); }
+.progress-line { height: 10rpx; border-radius: 99rpx; background: #f0e2dc; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 99rpx; background: linear-gradient(90deg,#b3736a,#8f5954); transition: width .3s cubic-bezier(.2,.8,.2,1); }
+.progress-steps { display: flex; justify-content: space-between; margin-top: 28rpx; }
+.progress-step { display: flex; flex-direction: column; gap: 10rpx; color: #b4a097; font-size: 22rpx; }
+.progress-step text:first-child { font-size: 20rpx; letter-spacing: 2rpx; }
+.step-active { color: #8f5750; }
+.status-panel { display: flex; align-items: center; gap: 18rpx; margin-top: 48rpx; padding: 28rpx; border: 1rpx solid #ead8d0; border-radius: 32rpx; color: #806d65; background: #fffaf7; font-size: 25rpx; }.status-dot { width: 16rpx; height: 16rpx; border-radius: 50%; background: #b9796e; box-shadow: 0 0 0 8rpx #f0ddd6; animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .45; transform: scale(.82); } }

@@ -1,10 +1,14 @@
-<view class="page center">
-  <view class="title">Payment result</view>
-  <view class="copy">Confirm this payment to unlock the report bound to the active preview group.</view>
-  <view class="copy" wx:if="{{paymentStatus === 'paid'}}">Payment confirmed. Your current report is ready to open.</view>
-  <view class="copy" wx:if="{{feedback}}">{{feedback}}</view>
-  <button class="secondary-button" loading="{{confirming}}" bindtap="confirmUnlock">Confirm payment</button>
-  <button class="primary-button" bindtap="viewReport" disabled="{{!canViewReport}}">View report</button>
-  <button class="secondary-button" bindtap="requestRefund">Request refund</button>
-  <button class="secondary-button" bindtap="openRefundHelp">Refund help</button>
+<view class="page flow-page payment-page">
+  <view class="flow-head"><view class="back-icon pressable" aria-label="返回" bindtap="goBack" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/back.svg" mode="aspectFit"/></view><view class="eyebrow">NewHz / UNLOCK</view></view>
+  <view class="title">解锁完整试色报告</view>
+  <view class="copy">包含高清无水印试色图、品牌色号、颜色分析和搭配建议。</view>
+  <view class="surface payment-card">
+    <view class="price">¥5.99</view>
+    <view class="payment-note">当前试色组 · 支付后立即查看</view>
+  </view>
+  <view wx:if="{{paymentStatus === 'paid'}}" class="success-note">支付已确认，完整报告已经准备好。</view>
+  <view wx:if="{{feedback}}" class="feedback">{{feedback}}</view>
+  <button class="primary-button" loading="{{confirming}}" bindtap="confirmUnlock">确认支付</button>
+  <button class="secondary-button" bindtap="viewReport" disabled="{{!canViewReport}}">查看完整报告</button>
+  <button class="ghost-button" bindtap="openRefundHelp">退款说明</button>
 </view>

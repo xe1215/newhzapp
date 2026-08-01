@@ -1,4 +1,6 @@
-<view class="page">
-  <view class="title">Privacy</view>
-  <view class="copy">Selfies are used for try-on generation and expire after the configured lifecycle.</view>
+<view class="page flow-page privacy-page">
+  <view class="flow-head"><view class="back-icon pressable" aria-label="返回" bindtap="goBack" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/back.svg" mode="aspectFit"/></view><view class="eyebrow">NewHz / PRIVACY</view></view>
+  <view class="title">隐私说明</view>
+  <view class="copy">你的照片仅用于生成试色结果，我们会按产品生命周期保存并在到期后清理。</view>
+  <view class="surface privacy-card"><view class="privacy-section"><view class="section-title">照片如何使用</view><view class="copy">上传的自拍会经过安全审核并用于生成试色图，不会用于与本次服务无关的用途。</view></view><view class="privacy-section"><view class="section-title">保存与删除</view><view class="copy">你可以在报告或账号设置中发起删除请求；临时图片链接失效后需要重新加载。</view></view><view class="privacy-section"><view class="section-title">需要帮助</view><view class="copy">如对数据处理有疑问，请通过“我的”页的账号设置联系我们。</view></view></view>
 </view>

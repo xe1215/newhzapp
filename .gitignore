@@ -38,3 +38,6 @@ Desktop.ini
 .npm-cache/
 .codegraph/
 skills-lock.json
+.config/
+AppData/
+tmp-deploy/

@@ -1,1 +1,6 @@
 @import "../shared.wxss";
+.flow-page { padding-top: 62rpx; }
+.payment-card { margin-top: 54rpx; padding: 48rpx 32rpx; border: 1rpx solid #ead8d0; background: #fffdf9; box-shadow: 0 22rpx 58rpx rgba(67,45,34,.1); text-align: center; }
+.price { color: #8f5954; font-family: Georgia,serif; font-size: 72rpx; font-weight: 700; }
+.payment-note { margin-top: 12rpx; color: #927e75; font-size: 24rpx; }
+.success-note { margin-top: 26rpx; color: #66815f; font-size: 26rpx; }

@@ -1,7 +1,13 @@
-<view class="page">
-  <view class="title">Refund help</view>
-  <view class="copy">Refunds are available when generation fails or a paid report cannot be viewed.</view>
-  <view class="copy">Refund payout and reconciliation are completed through the WeChat Pay merchant platform.</view>
-  <button class="secondary-button" loading="{{submitting}}" bindtap="requestRefund">Request refund</button>
-  <view wx:if="{{feedback}}" class="copy">{{feedback}}</view>
+<view class="page flow-page">
+  <view class="flow-head"><view class="back-icon pressable" aria-label="返回" bindtap="goBack" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/back.svg" mode="aspectFit"/></view><view class="eyebrow">NewHz / SUPPORT</view></view>
+  <view class="title">退款说明</view>
+  <view class="copy">如果生成失败，或支付后无法查看完整报告，可以在这里提交退款帮助。</view>
+  <view class="surface refund-card">
+    <view class="section-title">适用情况</view>
+    <view class="refund-row"><text class="refund-index">01</text><text>试色生成失败且无法重新生成</text></view>
+    <view class="refund-row"><text class="refund-index">02</text><text>已支付但报告暂时不可查看</text></view>
+    <view class="refund-row"><text class="refund-index">03</text><text>退款将通过微信支付商户平台处理</text></view>
+  </view>
+  <button class="primary-button" loading="{{submitting}}" bindtap="requestRefund">提交退款帮助</button>
+  <view wx:if="{{feedback}}" class="feedback">{{feedback}}</view>
 </view>

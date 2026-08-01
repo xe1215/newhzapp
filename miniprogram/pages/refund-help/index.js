@@ -14,6 +14,10 @@ Page({
     });
   },
 
+  goBack() {
+    wx.navigateBack({ delta: 1 });
+  },
+
   requestRefund() {
     if (!this.data.orderId) {
       this.setData({

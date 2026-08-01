@@ -76,6 +76,8 @@ async function getReport(event, deps) {
   const report = ownedReportResult.data.report;
 
   const paidImages = Array.isArray(report.paidImages) ? report.paidImages : [];
+  const testResult = await runtime.db.collection("try_on_tests").doc(data.testId).get();
+  const testRecord = testResult.data || {};
   const locked = !report.unlockedAt;
 
   if (locked) {
@@ -99,6 +101,7 @@ async function getReport(event, deps) {
     status: report.status || "active",
     locked: false,
     paidImages,
+    selfieFileId: testRecord.openid === openid ? testRecord.selfieFileId || "" : "",
     snapshot: report.snapshot || {},
     unlockedAt: report.unlockedAt,
   });

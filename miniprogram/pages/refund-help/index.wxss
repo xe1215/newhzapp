@@ -1,1 +1,6 @@
 @import "../shared.wxss";
+.flow-page { padding-top: 62rpx; }
+.refund-card { margin-top: 44rpx; padding: 34rpx; border: 1rpx solid #ead8d0; background: #fffdf9; box-shadow: 0 22rpx 58rpx rgba(67,45,34,.1); }
+.refund-row { display: flex; gap: 18rpx; align-items: center; padding: 24rpx 0; border-bottom: 1rpx solid #eee0d9; color: #594740; font-size: 26rpx; line-height: 1.45; }
+.refund-row:last-child { border-bottom: 0; }
+.refund-index { color: #a17668; font-family: Georgia,serif; font-size: 22rpx; letter-spacing: 2rpx; }

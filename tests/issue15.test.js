@@ -49,7 +49,10 @@ function test(name, fn) {
 function createAdminDb(calls) {
   const state = {
     admin_sessions: {},
+    admin_actions: {},
+    lipsticks: {},
   };
+  const missingCollections = new Set();
 
   function clone(value) {
     return value ? JSON.parse(JSON.stringify(value)) : value;
@@ -57,18 +60,52 @@ function createAdminDb(calls) {
 
   return {
     state,
+    missingCollections,
     collection(name) {
       calls.push(["collection", name]);
       return {
+        async createCollection() {
+          calls.push(["createCollection", name]);
+          missingCollections.delete(name);
+          if (!state[name]) {
+            state[name] = {};
+          }
+          return { ok: 1 };
+        },
+        async add(payload) {
+          calls.push(["add", name, payload]);
+          if (missingCollections.has(name)) {
+            const error = new Error(`collection ${name} missing`);
+            error.message = `document.add:fail -502005 database collection not exists: ${name}`;
+            throw error;
+          }
+          if (!state[name]) {
+            state[name] = {};
+          }
+          const data = clone(payload.data) || {};
+          const id = data._id || `${name}-${Object.keys(state[name]).length + 1}`;
+          state[name][id] = { _id: id, ...data };
+          return { _id: id };
+        },
         doc(id) {
           calls.push(["doc", name, id]);
           return {
             async get() {
               calls.push(["doc.get", name, id]);
+              if (missingCollections.has(name)) {
+                const error = new Error(`collection ${name} missing`);
+                error.message = `document.get:fail -502005 database collection not exists: ${name}`;
+                throw error;
+              }
               return { data: clone((state[name] || {})[id] || null) };
             },
             async set(payload) {
               calls.push(["doc.set", name, id, payload]);
+              if (missingCollections.has(name)) {
+                const error = new Error(`collection ${name} missing`);
+                error.message = `document.set:fail -502005 database collection not exists: ${name}`;
+                throw error;
+              }
               if (!state[name]) {
                 state[name] = {};
               }
@@ -77,6 +114,11 @@ function createAdminDb(calls) {
             },
             async update(payload) {
               calls.push(["doc.update", name, id, payload]);
+              if (missingCollections.has(name)) {
+                const error = new Error(`collection ${name} missing`);
+                error.message = `document.update:fail -502005 database collection not exists: ${name}`;
+                throw error;
+              }
               if (!state[name]) {
                 state[name] = {};
               }
@@ -238,10 +280,94 @@ test("admin cloud function returns a clear auth error when password is wrong", a
   );
 });
 
+test("admin cloud function auto-creates admin collections when they are missing", async () => {
+  const adminFunction = require("../cloudfunctions/admin");
+  const calls = [];
+  const db = createAdminDb(calls);
+  db.missingCollections.add("admin_sessions");
+
+  const result = await adminFunction.main(
+    {
+      action: "login",
+      data: {
+        password: "s3cr3t",
+      },
+    },
+    {},
+    {
+      db,
+      env: {
+        ADMIN_PASSWORD_HASH: "sha256$4e738ca5563c06cfd0018299933d58db1dd8bf97f6973dc99bf6cdc64b5550bd",
+        ADMIN_SESSION_SECRET: "server-only-session-secret",
+        ADMIN_SESSION_TTL_SECONDS: "7200",
+      },
+      now: () => new Date("2026-06-23T12:00:00.000Z"),
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.ok(
+    calls.some((call) => call[0] === "createCollection" && call[1] === "admin_sessions"),
+    "login should bootstrap admin_sessions when the collection is missing"
+  );
+});
+
+test("admin cloud function auto-creates admin action log collection when writes need it", async () => {
+  const adminFunction = require("../cloudfunctions/admin");
+  const calls = [];
+  const db = createAdminDb(calls);
+  db.missingCollections.add("admin_actions");
+  db.state.lipsticks.seed = {
+    _id: "seed",
+    brand: "Test",
+    shadeName: "Rose",
+    shadeCode: "R1",
+    colorHex: "#AA0000",
+    skinToneTags: ["warm"],
+    budgetMin: 10,
+    budgetMax: 20,
+    status: "active",
+    createdAt: "2026-06-22T00:00:00.000Z",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+  };
+  db.state.admin_sessions.token1 = {
+    _id: "token1",
+    token: "token1",
+    role: "developer",
+    expiresAt: "2026-06-23T14:00:00.000Z",
+    revokedAt: "",
+  };
+
+  const result = await adminFunction.main(
+    {
+      action: "setLipstickStatus",
+      data: {
+        token: "token1",
+        lipstickId: "seed",
+        status: "inactive",
+      },
+    },
+    {},
+    {
+      db,
+      env: {},
+      now: () => new Date("2026-06-23T12:00:00.000Z"),
+      id: () => "generated-action-id",
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.ok(
+    calls.some((call) => call[0] === "createCollection" && call[1] === "admin_actions"),
+    "write actions should bootstrap admin_actions when the collection is missing"
+  );
+});
+
 test("developer console shell exists as an independent Vite app with login page, authenticated routes, and protected admin client", () => {
   for (const file of [
     "admin/package.json",
     "admin/index.html",
+    "admin/.env.example",
     "admin/vite.config.js",
     "admin/src/main.jsx",
     "admin/src/App.jsx",
@@ -255,6 +381,7 @@ test("developer console shell exists as an independent Vite app with login page,
   assert.strictEqual(packageJson.private, true);
   assert.match(packageJson.scripts.dev, /vite/);
   assert.match(packageJson.scripts.build, /vite build/);
+  assert.ok(packageJson.dependencies["@cloudbase/js-sdk"]);
   assert.ok(packageJson.dependencies.react);
   assert.ok(packageJson.dependencies["react-router-dom"]);
 
@@ -262,6 +389,7 @@ test("developer console shell exists as an independent Vite app with login page,
   const mainSource = readText("admin/src/main.jsx");
   const styles = readText("admin/src/styles.css");
   const apiClient = readText("admin/src/lib/admin-api.js");
+  const envExample = readText("admin/.env.example");
 
   assert.match(appSource, /Developer Console/);
   assert.match(appSource, /Operations Overview/);
@@ -278,8 +406,12 @@ test("developer console shell exists as an independent Vite app with login page,
   assert.match(styles, /\.admin-shell/);
   assert.match(styles, /\.sidebar/);
   assert.match(styles, /\.login-card/);
+  assert.match(apiClient, /@cloudbase\/js-sdk/);
+  assert.match(apiClient, /import\.meta\.env/);
   assert.match(apiClient, /callFunction/);
   assert.match(apiClient, /name:\s*"admin"/);
+  assert.match(apiClient, /window\.__ADMIN_CLOUD__/);
+  assert.match(envExample, /VITE_CLOUDBASE_ENV_ID/);
   assert.doesNotMatch(apiClient, /ADMIN_SESSION_SECRET|ADMIN_PASSWORD_HASH|secret/i);
 });
 

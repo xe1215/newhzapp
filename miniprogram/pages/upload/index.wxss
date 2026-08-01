@@ -1,8 +1,18 @@
 @import "../shared.wxss";
-
-.feedback {
-  margin-top: 24rpx;
-  color: #8b2a4a;
-  font-size: 26rpx;
-  line-height: 1.5;
-}
+.setup-page { padding-bottom: 40rpx; }
+.setup-card { min-height: 564rpx; box-sizing: border-box; padding: 36rpx; border: 1rpx solid rgba(118,93,78,.12); border-radius: 56rpx; background: rgba(255,253,248,.78); box-shadow: 0 36rpx 96rpx rgba(58,45,36,.16); animation: rise .75s .12s ease both; }
+.upload-preview { position: relative; width: 300rpx; height: 320rpx; box-sizing: border-box; margin: 0 auto 28rpx; padding: 36rpx; border: 1rpx solid rgba(118,93,78,.08); border-radius: 44rpx; background: #fffdf8; box-shadow: 0 28rpx 72rpx rgba(58,45,36,.12); }
+.upload-photo { display: flex; width: 100%; height: 180rpx; align-items: center; justify-content: center; margin-top: 20rpx; overflow: hidden; border-radius: 30rpx; color: rgba(255,253,248,.9); background: linear-gradient(145deg,#e8c7bd,#a97062 52%,#3b2a25); }
+.camera-mark { width: 68rpx; height: 52rpx; border: 8rpx solid currentColor; border-radius: 12rpx; font-size: 0; }
+.setup-title { font-size: 36rpx; font-weight: 900; line-height: 1.2; }
+.setup-copy { margin-top: 14rpx; color: #8a7f77; font-size: 24rpx; font-weight: 800; line-height: 1.55; }
+.upload-actions { display: flex; width: 100%; box-sizing: border-box; gap: 18rpx; margin-top: 28rpx; }
+.upload-action { display: flex; min-width: 0; height: 80rpx; flex: 1 1 0; box-sizing: border-box; align-items: center; justify-content: center; gap: 10rpx; padding: 0 12rpx; overflow: hidden; border: 1rpx solid rgba(118,93,78,.14); border-radius: 999rpx; color: #6f5a50; background: #f7f3ec; box-shadow: 0 8rpx 18rpx rgba(58,45,36,.05); font-size: 25rpx; font-weight: 900; white-space: nowrap; }
+.upload-action.primary { color: #5b4037; background: rgba(241,198,186,.5); border-color: rgba(140,106,90,.24); }
+.action-icon { display: flex; width: 34rpx; height: 34rpx; flex: 0 0 34rpx; align-items: center; justify-content: center; font-size: 24rpx; line-height: 34rpx; }
+.upload-action-pressed { opacity: .78; transform: scale(.98); }
+.preference-panel { margin-top: 28rpx; padding: 28rpx; border: 1rpx solid rgba(85,65,52,.16); border-radius: 52rpx; background: rgba(255,253,248,.72); box-shadow: 0 36rpx 96rpx rgba(58,45,36,.16); animation: rise .75s .2s ease both; }
+.pref-row { margin-bottom: 18rpx; }.pref-title { margin-bottom: 12rpx; color: #3a302b; font-size: 26rpx; font-weight: 900; }.pref-options { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.pref-chip { width: auto; height: 56rpx; margin: 0; padding: 0 20rpx; border: 1rpx solid rgba(118,93,78,.12); border-radius: 999rpx; color: #766b63; background: #f7f3ec; font-size: 22rpx; font-weight: 900; line-height: 56rpx; }.pref-chip.active { color: #5b4037; background: rgba(241,198,186,.5); border-color: rgba(140,106,90,.28); }
+.generate-button { height: 88rpx; margin-top: 20rpx; line-height: 88rpx; }
+.setup-card, .preference-panel { border-color: #ead8d0; background: rgba(255,253,249,.9); box-shadow: 0 22rpx 58rpx rgba(67,45,34,.1); }.upload-preview { border-color: #f0e2da; background: #fffaf6; }.upload-action.primary, .pref-chip.active { color: #6d423e; background: #f2ddd5; border-color: #d9a99d; }.pref-chip { transition: background .2s ease, transform .2s ease, border-color .2s ease; }
