@@ -493,6 +493,19 @@ async function deleteSelfie(event, deps) {
     },
   });
 
+  const reportIds = [...new Set([data.reportId, testRecord.activeReportId].filter(Boolean))];
+  await Promise.all(reportIds.map(async (reportId) => {
+    const reportResult = await runtime.db.collection("reports").doc(reportId).get();
+    const report = reportResult.data || {};
+    if (!report._id || report.openid !== openid || report.testId !== data.testId || report.deletedAt) return;
+    await runtime.db.collection("reports").doc(reportId).update({
+      data: {
+        originalDeletedAt: now,
+        updatedAt: now,
+      },
+    });
+  }));
+
   await runtime.db.collection("events").add({
     data: {
       type: "delete_selfie",

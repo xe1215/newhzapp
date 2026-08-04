@@ -65,7 +65,7 @@ function createIssue9Db(calls, overrides) {
         _id: "test-expired-report",
         openid: "openid-123",
         status: "preview_ready",
-        selfieFileId: "",
+        selfieFileId: "cloud://selfies/openid-123/test-expired-report/original.jpg",
         activeReportId: "report-expired-unpaid",
         createdAt: "2026-06-20T08:00:00.000Z",
         updatedAt: "2026-06-20T08:00:00.000Z",
@@ -101,8 +101,11 @@ function createIssue9Db(calls, overrides) {
         openid: "openid-123",
         testId: "test-expired-report",
         status: "active",
-        previewImages: ["cloud://preview/report-expired-unpaid/1.jpg"],
-        paidImages: [],
+        previewImages: [
+          "cloud://preview/report-expired-unpaid/1.jpg",
+          "cloud://preview/report-expired-unpaid/2.jpg",
+        ],
+        paidImages: ["cloud://paid/report-expired-unpaid/1.jpg"],
         unlockedAt: "",
         deletedAt: "",
         createdAt: "2026-06-20T08:10:00.000Z",
@@ -257,6 +260,10 @@ test("deleteSelfie removes only the original selfie and keeps generated reports 
   assert.strictEqual(result.data.selfieDeleted, true);
   assert.strictEqual(db.state.try_on_tests["test-delete"].selfieFileId, "");
   assert.strictEqual(db.state.reports["report-keep"].status, "active");
+  assert.strictEqual(
+    db.state.reports["report-keep"].originalDeletedAt,
+    "2026-06-22T08:30:00.000Z"
+  );
   assert.deepStrictEqual(deletedFiles, ["cloud://selfies/openid-123/test-delete/original.jpg"]);
 
   const eventCall = calls.find(
@@ -268,7 +275,7 @@ test("deleteSelfie removes only the original selfie and keeps generated reports 
   assert.ok(eventCall, "delete selfie event should be recorded");
 });
 
-test("cleanupExpiredData deletes expired selfies and expires unpaid reports without removing paid reports", async () => {
+test("cleanupExpiredData retains paid originals and fully removes expired unpaid preview assets", async () => {
   const cleanupFunction = require("../cloudfunctions/cleanupExpiredData");
   const calls = [];
   const deletedFiles = [];
@@ -289,14 +296,25 @@ test("cleanupExpiredData deletes expired selfies and expires unpaid reports with
   assert.strictEqual(result.code, 0);
   assert.strictEqual(result.data.cleanedSelfies, 2);
   assert.strictEqual(result.data.expiredReports, 1);
-  assert.strictEqual(db.state.try_on_tests["test-delete"].selfieFileId, "");
+  assert.strictEqual(
+    db.state.try_on_tests["test-delete"].selfieFileId,
+    "cloud://selfies/openid-123/test-delete/original.jpg"
+  );
   assert.strictEqual(db.state.try_on_tests["test-expired-selfie"].selfieFileId, "");
+  assert.strictEqual(db.state.try_on_tests["test-expired-report"].selfieFileId, "");
+  assert.strictEqual(db.state.try_on_tests["test-expired-report"].activeReportId, "");
   assert.strictEqual(db.state.reports["report-expired-unpaid"].status, "expired");
+  assert.strictEqual(db.state.reports["report-expired-unpaid"].deletedAt, "2026-06-22T09:00:00.000Z");
+  assert.deepStrictEqual(db.state.reports["report-expired-unpaid"].previewImages, []);
+  assert.deepStrictEqual(db.state.reports["report-expired-unpaid"].paidImages, []);
   assert.strictEqual(db.state.reports["report-refund-unavailable"].status, "active");
   assert.strictEqual(db.state.reports["report-paid-keep"].status, "active");
   assert.deepStrictEqual(deletedFiles, [
-    "cloud://selfies/openid-123/test-delete/original.jpg",
     "cloud://selfies/openid-123/test-expired-selfie/original.jpg",
+    "cloud://selfies/openid-123/test-expired-report/original.jpg",
+    "cloud://preview/report-expired-unpaid/1.jpg",
+    "cloud://preview/report-expired-unpaid/2.jpg",
+    "cloud://paid/report-expired-unpaid/1.jpg",
   ]);
 });
 
@@ -339,6 +357,97 @@ test("requestRefund records refund reason and emits a refund_request event only 
   assert.strictEqual(eventCall[2].data.orderId, "order-refund");
 });
 
+test("confirmPayment retains the original selfie for an unlocked paid report", async () => {
+  const paymentFunction = require("../cloudfunctions/payment");
+  const calls = [];
+  const db = createIssue9Db(calls, {
+    try_on_tests: {
+      "test-paid-retain": {
+        _id: "test-paid-retain",
+        openid: "openid-123",
+        status: "preview_ready",
+        selfieFileId: "cloud://selfies/openid-123/test-paid-retain/original.jpg",
+        activeReportId: "report-paid-retain",
+        expiresAt: "2026-06-21T08:00:00.000Z",
+      },
+    },
+    reports: {
+      "report-paid-retain": {
+        _id: "report-paid-retain",
+        openid: "openid-123",
+        testId: "test-paid-retain",
+        status: "active",
+        previewImages: ["cloud://preview/report-paid-retain/1.jpg"],
+        paidImages: ["cloud://paid/report-paid-retain/1.jpg"],
+        unlockedAt: "",
+        deletedAt: "",
+      },
+    },
+    orders: {
+      "order-paid-retain": {
+        _id: "order-paid-retain",
+        openid: "openid-123",
+        testId: "test-paid-retain",
+        reportId: "report-paid-retain",
+        status: "pending",
+        refundStatus: "none",
+        wechatPayment: {},
+      },
+    },
+  });
+
+  const result = await paymentFunction.main(
+    {
+      action: "confirmPayment",
+      data: { orderId: "order-paid-retain", transactionId: "txn-retain", retainSelfie: true },
+    },
+    {},
+    {
+      db,
+      wxContext: { OPENID: "openid-123" },
+      now: () => new Date("2026-06-22T10:00:00.000Z"),
+    }
+  );
+
+  assert.strictEqual(result.code, 0);
+  assert.strictEqual(result.data.canViewReport, true);
+  assert.strictEqual(db.state.reports["report-paid-retain"].unlockedAt, "2026-06-22T10:00:00.000Z");
+  assert.strictEqual(db.state.try_on_tests["test-paid-retain"].selfieRetention, "paid_report");
+  assert.strictEqual(db.state.try_on_tests["test-paid-retain"].expiresAt, "");
+  assert.strictEqual(db.state.orders["order-paid-retain"].selfieRetentionConsent, true);
+});
+
+test("createReportOrder rejects an expired preview report", async () => {
+  const paymentFunction = require("../cloudfunctions/payment");
+  const calls = [];
+  const db = createIssue9Db(calls, {
+    try_on_tests: {
+      "test-expired-order": {
+        _id: "test-expired-order",
+        openid: "openid-123",
+        activeReportId: "report-expired-order",
+      },
+    },
+    reports: {
+      "report-expired-order": {
+        _id: "report-expired-order",
+        openid: "openid-123",
+        testId: "test-expired-order",
+        status: "expired",
+        deletedAt: "2026-06-22T09:00:00.000Z",
+      },
+    },
+  });
+
+  const result = await paymentFunction.main(
+    { action: "createReportOrder", data: { testId: "test-expired-order" } },
+    {},
+    { db, wxContext: { OPENID: "openid-123" } }
+  );
+
+  assert.strictEqual(result.code, "RESOURCE_NOT_FOUND");
+});
+
 test("requestRefund rejects orders that have already been successfully viewed", async () => {
   const paymentFunction = require("../cloudfunctions/payment");
   const calls = [];
@@ -379,13 +488,18 @@ test("refund and selfie management use business-service boundaries in the mini p
   const paymentResultPage = readText("miniprogram/pages/payment-result/index.js");
   const refundHelpPage = readText("miniprogram/pages/refund-help/index.js");
   const refundHelpTemplate = readText("miniprogram/pages/refund-help/index.wxml");
+  const reportPage = readText("miniprogram/pages/report/index.js");
+  const reportTemplate = readText("miniprogram/pages/report/index.wxml");
 
   assert.match(testService, /deleteSelfie/);
   assert.match(paymentService, /requestRefund/);
   assert.match(previewPage, /deleteSelfie/);
   assert.match(paymentResultPage, /requestRefund|refund-help\/index/);
+  assert.match(paymentResultPage, /retainOriginalConsent/);
   assert.match(refundHelpPage, /requestRefund/);
   assert.match(refundHelpTemplate, /refund/i);
+  assert.match(reportPage, /deleteOriginalSelfie/);
+  assert.match(reportTemplate, /deleteOriginalSelfie/);
 });
 
 test("cleanupExpiredData declares an hourly timer trigger in repository config", () => {

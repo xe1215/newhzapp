@@ -41,10 +41,22 @@ function isExpired(isoTime, nowMs) {
 async function clearExpiredSelfies(runtime, nowIso, nowMs) {
   const result = await runtime.db.collection("try_on_tests").where({}).get();
   const tests = result.data || [];
+  const [reportResult, orderResult] = await Promise.all([
+    runtime.db.collection("reports").where({}).get(),
+    runtime.db.collection("orders").where({}).get(),
+  ]);
+  const retainedTestIds = new Set([
+    ...(reportResult.data || [])
+      .filter((report) => report.unlockedAt)
+      .map((report) => report.testId),
+    ...(orderResult.data || [])
+      .filter((order) => order.status === "paid")
+      .map((order) => order.testId),
+  ].filter(Boolean));
   let cleanedSelfies = 0;
 
   for (const test of tests) {
-    if (!test.selfieFileId || !isExpired(test.expiresAt, nowMs)) {
+    if (!test.selfieFileId || retainedTestIds.has(test._id) || !isExpired(test.expiresAt, nowMs)) {
       continue;
     }
 
@@ -62,14 +74,23 @@ async function clearExpiredSelfies(runtime, nowIso, nowMs) {
 }
 
 async function expireUnpaidReports(runtime, nowIso, nowMs) {
-  const reportResult = await runtime.db.collection("reports").where({}).get();
+  const [reportResult, orderResult, testResult] = await Promise.all([
+    runtime.db.collection("reports").where({}).get(),
+    runtime.db.collection("orders").where({}).get(),
+    runtime.db.collection("try_on_tests").where({}).get(),
+  ]);
   const reports = reportResult.data || [];
-  const orderResult = await runtime.db.collection("orders").where({}).get();
   const paidReportIds = new Set(
     (orderResult.data || [])
       .filter((order) => order.status === "paid")
       .map((order) => order.reportId)
       .filter(Boolean)
+  );
+  const expiryByTestId = new Map(
+    (testResult.data || []).map((test) => [test._id, test.expiresAt || ""])
+  );
+  const testById = new Map(
+    (testResult.data || []).map((test) => [test._id, test])
   );
   let expiredReports = 0;
 
@@ -78,16 +99,36 @@ async function expireUnpaidReports(runtime, nowIso, nowMs) {
       continue;
     }
 
-    if (!isExpired(report.createdAt, nowMs)) {
+    const expiresAt = expiryByTestId.get(report.testId) || report.createdAt;
+    if (!isExpired(expiresAt, nowMs)) {
       continue;
     }
+
+    const imageFileIds = [...new Set([
+      ...(Array.isArray(report.previewImages) ? report.previewImages : []),
+      ...(Array.isArray(report.paidImages) ? report.paidImages : []),
+    ].filter(Boolean))];
+    await Promise.all(imageFileIds.map((fileId) => runtime.deleteFile(fileId).catch(() => null)));
 
     await runtime.db.collection("reports").doc(report._id).update({
       data: {
         status: "expired",
+        deletedAt: nowIso,
+        previewImages: [],
+        paidImages: [],
+        snapshot: {},
         updatedAt: nowIso,
       },
     });
+    const test = testById.get(report.testId);
+    if (test && test.activeReportId === report._id) {
+      await runtime.db.collection("try_on_tests").doc(report.testId).update({
+        data: {
+          activeReportId: "",
+          updatedAt: nowIso,
+        },
+      });
+    }
     expiredReports += 1;
   }
 

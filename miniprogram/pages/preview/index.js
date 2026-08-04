@@ -249,7 +249,20 @@ Page({
     });
   },
 
+  resetPreviewGesture() {
+    this.previewTouchStart = null;
+    this.setData({
+      previewDragging: false,
+      previewDragOffset: 0,
+      previewDragY: 0,
+      previewDragRotation: 0,
+    });
+  },
+
   onPreviewTouchStart(e) {
+    if (this.data.previewDragging || this.data.previewDragOffset || this.data.previewDragY || this.data.previewDragRotation) {
+      this.resetPreviewGesture();
+    }
     const point = e.touches && e.touches[0];
     this.previewTouchStart = point ? {
       x: typeof point.clientX === "number" ? point.clientX : point.pageX,
@@ -277,7 +290,10 @@ Page({
 
   onPreviewTouchEnd(e) {
     const point = e.changedTouches && e.changedTouches[0];
-    if (!point || !this.previewTouchStart) return;
+    if (!point || !this.previewTouchStart) {
+      this.resetPreviewGesture();
+      return;
+    }
     const gesture = this.previewTouchStart;
     const x = typeof point.clientX === "number" ? point.clientX : point.pageX;
     const y = typeof point.clientY === "number" ? point.clientY : point.pageY;
@@ -285,12 +301,7 @@ Page({
     const dy = y - gesture.y;
     this.previewTouchStart = null;
     if (Math.abs(dx) <= Math.abs(dy) * 1.15 || !this.data.previewImages.length) {
-      this.setData({
-        previewDragging: false,
-        previewDragOffset: 0,
-        previewDragY: 0,
-        previewDragRotation: 0,
-      });
+      this.resetPreviewGesture();
       return;
     }
 
@@ -301,12 +312,7 @@ Page({
     const momentumSteps = velocity >= 0.65 ? 2 : 1;
     const steps = Math.min(2, velocity >= 0.65 ? momentumSteps : distanceSteps);
     if (!steps) {
-      this.setData({
-        previewDragging: false,
-        previewDragOffset: 0,
-        previewDragY: 0,
-        previewDragRotation: 0,
-      });
+      this.resetPreviewGesture();
       return;
     }
     const nextIndex = (this.data.currentIndex + (dx < 0 ? steps : -steps) + count * 2) % count;
@@ -321,6 +327,10 @@ Page({
     });
     clearTimeout(this.previewMotionTimer);
     this.previewMotionTimer = setTimeout(() => this.setData({ previewMotion: "" }), 520);
+  },
+
+  onPreviewTouchCancel() {
+    this.resetPreviewGesture();
   },
 
   deleteSelfie() {

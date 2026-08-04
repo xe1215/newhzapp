@@ -102,6 +102,7 @@ async function getReport(event, deps) {
     locked: false,
     paidImages,
     selfieFileId: testRecord.openid === openid ? testRecord.selfieFileId || "" : "",
+    originalDeletedAt: report.originalDeletedAt || "",
     snapshot: report.snapshot || {},
     unlockedAt: report.unlockedAt,
   });

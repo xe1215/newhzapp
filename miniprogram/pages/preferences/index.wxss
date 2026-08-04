@@ -2,6 +2,6 @@
 .flow-page { padding-top: 62rpx; }
 .preference-group { margin-top: 42rpx; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 18rpx; }
-.choice-chip { width: auto; min-width: 140rpx; height: 70rpx; margin: 0; padding: 0 24rpx; border: 1rpx solid #decac1; border-radius: 99rpx; color: #806d65; background: #fffaf7; font-size: 25rpx; line-height: 70rpx; }
+.choice-chip { display: flex; width: auto; min-width: 140rpx; height: 70rpx; box-sizing: border-box; align-items: center; justify-content: center; margin: 0; padding: 0 24rpx; border: 1rpx solid #decac1; border-radius: 99rpx; color: #806d65; background: #fffaf7; font-size: 25rpx; line-height: 1; text-align: center; }
 .choice-active { color: #8f5750; border-color: #b9796e; background: #f0ddd6; box-shadow: 0 8rpx 18rpx rgba(159, 93, 89, .12); }
 .submit-button { margin-top: 64rpx; }

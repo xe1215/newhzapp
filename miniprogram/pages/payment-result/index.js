@@ -9,6 +9,7 @@ Page({
     confirming: false,
     paymentStatus: "pending",
     canViewReport: false,
+    retainOriginalConsent: false,
     feedback: "",
   },
 
@@ -28,6 +29,11 @@ Page({
       return;
     }
 
+    if (!this.data.retainOriginalConsent) {
+      this.setData({ feedback: "请先确认原图保存说明。" });
+      return;
+    }
+
     this.setData({
       confirming: true,
       feedback: "",
@@ -36,6 +42,7 @@ Page({
     paymentService
       .confirmPayment({
         orderId: this.data.orderId,
+        retainSelfie: true,
         transactionId: `mock-${Date.now()}`,
       })
       .then((response) => {
@@ -59,6 +66,11 @@ Page({
           confirming: false,
         });
       });
+  },
+
+  onRetentionConsentChange(e) {
+    const values = e.detail && Array.isArray(e.detail.value) ? e.detail.value : [];
+    this.setData({ retainOriginalConsent: values.indexOf("retain") !== -1 });
   },
 
   viewReport() {
@@ -96,6 +108,7 @@ Page({
     paymentService
       .requestRefund({
         orderId: this.data.orderId,
+        retainSelfie: true,
         refundReason: this.data.canViewReport
           ? "REPORT_ALREADY_VIEWED"
           : "PAID_BUT_REPORT_UNAVAILABLE",

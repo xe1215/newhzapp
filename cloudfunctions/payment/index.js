@@ -80,7 +80,13 @@ async function createReportOrder(event, deps) {
   const reportResult = await runtime.db.collection("reports").doc(reportId).get();
   const reportRecord = reportResult.data || {};
 
-  if (!reportRecord._id || reportRecord.openid !== openid || reportRecord.testId !== data.testId) {
+  if (
+    !reportRecord._id ||
+    reportRecord.openid !== openid ||
+    reportRecord.testId !== data.testId ||
+    reportRecord.deletedAt ||
+    reportRecord.status === "expired"
+  ) {
     return fail("RESOURCE_NOT_FOUND", "Active report does not belong to current user");
   }
 
@@ -177,6 +183,8 @@ async function confirmPayment(event, deps) {
     refundEligibleAt: refundStatus === "pending" ? now : "",
     refundReason: refundStatus === "pending" ? "REPORT_NOT_VIEWABLE" : "",
     canViewReport: reportCanView,
+    selfieRetentionConsent: data.retainSelfie !== false,
+    selfieRetentionConsentAt: data.retainSelfie !== false ? now : "",
     wechatPayment: {
       ...(order.wechatPayment || {}),
       transactionId: data.transactionId || "",
@@ -188,12 +196,22 @@ async function confirmPayment(event, deps) {
   });
 
   if (reportCanView) {
-    await runtime.db.collection("reports").doc(order.reportId).update({
-      data: {
-        unlockedAt: now,
-        updatedAt: now,
-      },
-    });
+    await Promise.all([
+      runtime.db.collection("reports").doc(order.reportId).update({
+        data: {
+          unlockedAt: now,
+          updatedAt: now,
+        },
+      }),
+      runtime.db.collection("try_on_tests").doc(order.testId).update({
+        data: {
+          selfieRetention: "paid_report",
+          selfieRetainedAt: now,
+          expiresAt: "",
+          updatedAt: now,
+        },
+      }),
+    ]);
   }
 
   await runtime.db.collection("events").add({

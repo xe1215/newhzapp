@@ -1,6 +1,7 @@
 const reportService = require("../../services/report");
 const paymentService = require("../../services/payment");
 const shareService = require("../../services/share");
+const testService = require("../../services/test");
 const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 const { resolveCloudFileList } = require("../../utils/media");
 const { mapReportPresentation } = require("../../utils/presentation");
@@ -39,10 +40,14 @@ Page({
     presentation: null,
     activeRecommendation: null,
     originalImage: "",
+    originalDeletedByUser: false,
     sliderPercent: 50,
     sheetState: "peek",
     sheetDrag: 250,
     sheetDragging: false,
+    lockedSheetState: "peek",
+    lockedSheetDragging: false,
+    lockedSheetOffset: 0,
     detailSection: "color",
     tabLabels: ["A", "B", "C"],
   },
@@ -95,6 +100,7 @@ Page({
               .then((productImages) => ({
                 paidImages,
                 originalImage,
+                originalDeletedAt: data.originalDeletedAt || "",
                 presentation: Object.assign({}, presentation, {
                   recommendations: presentation.recommendations.map((item, index) => Object.assign({}, item, {
                     productImageUrl: productImages[index],
@@ -112,6 +118,7 @@ Page({
           recommendations,
           presentation: payload.presentation,
           originalImage: payload.originalImage,
+          originalDeletedByUser: Boolean(payload.originalDeletedAt),
           activeIndex,
           activeRecommendation: recommendations[activeIndex] || null,
         });
@@ -136,6 +143,33 @@ Page({
         });
       })
       .catch((error) => this.setData({ loading: false, errorText: error.message || "试色预览暂不可用。" }));
+  },
+
+  onLockedSheetTouchStart(e) {
+    const touch = e.touches && e.touches[0];
+    this.lockedSheetStartY = touch ? touch.clientY : 0;
+    this.setData({ lockedSheetDragging: true, lockedSheetOffset: 0 });
+  },
+
+  onLockedSheetTouchMove(e) {
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    const delta = touch.clientY - this.lockedSheetStartY;
+    this.setData({ lockedSheetOffset: Math.max(-72, Math.min(72, Math.round(delta * 0.35))) });
+  },
+
+  onLockedSheetTouchEnd(e) {
+    const touch = e.changedTouches && e.changedTouches[0];
+    const endY = touch ? touch.clientY : this.lockedSheetStartY;
+    const delta = endY - this.lockedSheetStartY;
+    const nextState = this.data.lockedSheetState === "expanded"
+      ? (delta > 70 ? "peek" : "expanded")
+      : (delta < -70 ? "expanded" : "peek");
+    this.setData({ lockedSheetState: nextState, lockedSheetDragging: false, lockedSheetOffset: 0 });
+  },
+
+  onLockedSheetTouchCancel() {
+    this.setData({ lockedSheetDragging: false, lockedSheetOffset: 0 });
   },
 
   resolvePaidImages(report) {
@@ -177,14 +211,33 @@ Page({
       .finally(() => this.setData({ unlocking: false }));
   },
 
+  deleteOriginalSelfie() {
+    if (!this.data.testId || this.data.originalDeletedByUser) return;
+    wx.showModal({
+      title: "删除原图",
+      content: "删除后将无法恢复，报告中的高清试色图会保留。",
+      confirmColor: "#9f5d59",
+      success: (res) => {
+        if (!res.confirm) return;
+        testService.deleteSelfie({ testId: this.data.testId, reportId: this.data.reportId })
+          .then(() => this.setData({
+            originalImage: "",
+            originalDeletedByUser: true,
+            errorText: "原图已删除，报告试色图仍可查看。",
+          }))
+          .catch((error) => this.setData({ errorText: error.message || "无法删除原图。" }));
+      },
+    });
+  },
+
   onSliderTouchStart() {
-    if (this.data.sheetState === "expanded" || this.data.isLocked) return;
+    if (this.data.sheetState === "expanded" || this.data.isLocked || this.data.originalDeletedByUser) return;
     wx.createSelectorQuery().in(this).select(".comparison-stage")
       .boundingClientRect((rect) => { this.sliderRect = rect; }).exec();
   },
 
   onSliderTouchMove(e) {
-    if (this.data.sheetState === "expanded" || this.data.isLocked) return;
+    if (this.data.sheetState === "expanded" || this.data.isLocked || this.data.originalDeletedByUser) return;
     const touch = e.touches && e.touches[0];
     if (!touch || !this.sliderRect) return;
     const percent = Math.max(0, Math.min(100, ((touch.clientX - this.sliderRect.left) / this.sliderRect.width) * 100));
