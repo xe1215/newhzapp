@@ -4,40 +4,43 @@ import { DetailList, FilterInput, FiltersBar } from "../components/admin-primiti
 import { buildOrderDetailItems } from "../components/detail-builders";
 import { copyText, emptyInvestigationFilters, formatCurrency } from "../utils/admin-format";
 import { RecordDetailSection, RecordTableSection, RecordWorkbenchLayout } from "../components/record-workbench";
+import { useOperationalDataView } from "../hooks/useOperationalDataView";
 
 export default function OrdersPage({ token }) {
-  const [filters, setFilters] = useState(
-    emptyInvestigationFilters({
-      refundStatus: "",
-      reportId: "",
-      outTradeNo: "",
-    })
-  );
-  const [orders, setOrders] = useState([]);
-  const [selectedDetail, setSelectedDetail] = useState(null);
   const [refundForm, setRefundForm] = useState({
     refundStatus: "pending",
     refundReason: "",
     adminNote: "",
   });
-  const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [errorText, setErrorText] = useState("");
-  const [successText, setSuccessText] = useState("");
-
-  async function loadData() {
-    setLoading(true);
-    setErrorText("");
-
-    try {
-      const data = await listOrders(token, filters);
-      setOrders(Array.isArray(data.items) ? data.items : []);
-    } catch (error) {
-      setErrorText(error.message || "无法加载订单记录。");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const {
+    filters,
+    setFilters,
+    records: orders,
+    selectedDetail,
+    loading,
+    detailLoading,
+    errorText,
+    setErrorText,
+    successText,
+    setSuccessText,
+    loadData,
+    loadSelectedDetail: handleSelect,
+  } = useOperationalDataView({
+    initialFilters: emptyInvestigationFilters({
+      refundStatus: "",
+      reportId: "",
+      outTradeNo: "",
+    }),
+    loadList: (currentFilters) => listOrders(token, currentFilters),
+    loadDetail: (orderId) => getOrderDetail(token, orderId),
+    listErrorMessage: "无法加载订单记录。",
+    detailErrorMessage: "无法加载订单详情。",
+    onDetailLoaded: (detail) => setRefundForm({
+      refundStatus: detail.refundStatus || "pending",
+      refundReason: detail.refundReason || "",
+      adminNote: detail.adminNote || "",
+    }),
+  });
 
   useEffect(() => {
     loadData();
@@ -51,26 +54,6 @@ export default function OrdersPage({ token }) {
     filters.startDate,
     filters.endDate,
   ]);
-
-  async function handleSelect(orderId) {
-    setDetailLoading(true);
-    setErrorText("");
-    setSuccessText("");
-
-    try {
-      const detail = await getOrderDetail(token, orderId);
-      setSelectedDetail(detail);
-      setRefundForm({
-        refundStatus: detail.refundStatus || "pending",
-        refundReason: detail.refundReason || "",
-        adminNote: detail.adminNote || "",
-      });
-    } catch (error) {
-      setErrorText(error.message || "无法加载订单详情。");
-    } finally {
-      setDetailLoading(false);
-    }
-  }
 
   async function handleSaveRefund(event) {
     event.preventDefault();

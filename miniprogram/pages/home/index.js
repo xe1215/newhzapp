@@ -1,5 +1,6 @@
 const authService = require("../../services/auth");
 const { unwrapCloudCall } = require("../../utils/business");
+const { createDeckFlow } = require("../../utils/card-deck-flow");
 
 function buildHomeDeck(activeIndex) {
   const slots = ["stack-front", "stack-middle", "stack-back"];
@@ -48,15 +49,34 @@ Page({
   onHide() { this.stopDeckFlow(); },
   onUnload() { this.stopDeckFlow(); },
 
+  getDeckFlow() {
+    if (!this.deckFlow) {
+      this.deckFlow = createDeckFlow(this, {
+        canAutoPlay: () => Boolean(this.data.latestPreview),
+        getCount: () => 3,
+        getActiveIndex: () => this.data.homeFlowIndex,
+        minimumCount: 0,
+        touchStartKey: "homeFlowStart",
+        readPoint: (point) => ({
+          x: typeof point.clientX === "number" ? point.clientX : point.pageX,
+          y: typeof point.clientY === "number" ? point.clientY : point.pageY,
+        }),
+        buildNextPatch: (nextIndex) => ({
+          homeFlowIndex: nextIndex,
+          homeDeck: buildHomeDeck(nextIndex),
+        }),
+        unlockBeforeMotionReset: false,
+      });
+    }
+    return this.deckFlow;
+  },
+
   startDeckFlow() {
-    this.stopDeckFlow();
-    if (!this.data.latestPreview) return;
-    this.deckFlowTimer = setInterval(() => this.advanceDeck("left"), 4800);
+    this.getDeckFlow().start();
   },
 
   stopDeckFlow() {
-    clearInterval(this.deckFlowTimer);
-    this.deckFlowTimer = null;
+    this.getDeckFlow().stop();
   },
 
   bootstrapUser() {
@@ -111,47 +131,15 @@ Page({
   },
 
   onDeckTouchStart(e) {
-    this.stopDeckFlow();
-    const point = e.touches && e.touches[0];
-    this.homeFlowStart = point ? {
-      x: typeof point.clientX === "number" ? point.clientX : point.pageX,
-      y: typeof point.clientY === "number" ? point.clientY : point.pageY,
-    } : null;
+    this.getDeckFlow().touchStart(e);
   },
 
   onDeckTouchEnd(e) {
-    const point = e.changedTouches && e.changedTouches[0];
-    if (!point || !this.homeFlowStart) return;
-    const gesture = this.homeFlowStart;
-    const x = typeof point.clientX === "number" ? point.clientX : point.pageX;
-    const y = typeof point.clientY === "number" ? point.clientY : point.pageY;
-    const dx = x - gesture.x;
-    const dy = y - gesture.y;
-    this.homeFlowStart = null;
-    if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy) * 1.15) {
-      this.advanceDeck(dx < 0 ? "left" : "right");
-      return;
-    }
-    this.startDeckFlow();
+    this.getDeckFlow().touchEnd(e);
   },
 
   advanceDeck(direction) {
-    if (this.deckTransitioning) return;
-    this.deckTransitioning = true;
-    const nextIndex = (this.data.homeFlowIndex + (direction === "left" ? 1 : -1) + 3) % 3;
-    this.setData({ deckMotion: `deck-exit-${direction}` });
-    this.deckExitTimer = setTimeout(() => {
-      this.setData({
-        homeFlowIndex: nextIndex,
-        homeDeck: buildHomeDeck(nextIndex),
-        deckMotion: direction === "left" ? "deck-enter-from-right" : "deck-enter-from-left",
-      });
-      this.deckMotionTimer = setTimeout(() => {
-        this.setData({ deckMotion: "" });
-        this.deckTransitioning = false;
-        this.startDeckFlow();
-      }, 24);
-    }, 300);
+    this.getDeckFlow().advance(direction);
   },
 
   openHome() {},

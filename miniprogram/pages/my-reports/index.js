@@ -3,6 +3,7 @@ const shareService = require("../../services/share");
 const { unwrapCloudCall } = require("../../utils/business");
 const { resolveCloudFileList } = require("../../utils/media");
 const { mapReportPresentation } = require("../../utils/presentation");
+const { createDeckFlow } = require("../../utils/card-deck-flow");
 
 function getDatasetValue(event, key) {
   const dataset = event && event.currentTarget ? event.currentTarget.dataset : null;
@@ -45,11 +46,38 @@ Page({
   onHide() { this.stopDeckFlow(); },
   onUnload() { this.stopDeckFlow(); },
 
-  startDeckFlow() {
-    this.stopDeckFlow();
-    if (this.data.displayReports.length > 1) this.deckFlowTimer = setInterval(() => this.advanceDeck("left"), 4800);
+  getDeckFlow() {
+    if (!this.deckFlow) {
+      this.deckFlow = createDeckFlow(this, {
+        canAutoPlay: () => this.data.displayReports.length > 1,
+        getCount: () => this.data.displayReports.length,
+        getActiveIndex: () => this.data.reportFlowIndex,
+        minimumCount: 2,
+        touchStartKey: "deckStart",
+        readPoint: (point) => ({
+          x: point.clientX || point.pageX,
+          y: point.clientY || point.pageY,
+        }),
+        buildNextPatch: (nextIndex, count) => {
+          const recommendations = this.data.displayReports.map((item) => item);
+          return {
+            reportFlowIndex: nextIndex,
+            displayReports: recommendations.map((item, index) => Object.assign({}, item, {
+              active: index === nextIndex,
+              stackSlot: ["stack-front", "stack-middle", "stack-back"][(index - nextIndex + count) % count],
+            })),
+          };
+        },
+        unlockBeforeMotionReset: true,
+      });
+    }
+    return this.deckFlow;
   },
-  stopDeckFlow() { clearInterval(this.deckFlowTimer); this.deckFlowTimer = null; },
+
+  startDeckFlow() {
+    this.getDeckFlow().start();
+  },
+  stopDeckFlow() { this.getDeckFlow().stop(); },
 
   openHome() { wx.redirectTo({ url: "/pages/home/index" }); },
   openReports() {},
@@ -72,7 +100,7 @@ Page({
           return null;
         }
         const report = unwrapCloudCall(response, "无法读取最新报告。 ");
-        return resolveCloudFileList(report.paidImages, "Look", (fileList) => wx.cloud.getTempFileURL({ fileList }))
+        return resolveCloudFileList(report.paidImages, "Look")
           .then((paidImages) => ({ paidImages, presentation: mapReportPresentation(report, paidImages) }));
       })
       .then((payload) => {
@@ -95,41 +123,13 @@ Page({
   },
 
   onDeckTouchStart(e) {
-    this.stopDeckFlow();
-    const point = e.touches && e.touches[0];
-    this.deckStart = point ? { x: point.clientX || point.pageX, y: point.clientY || point.pageY } : null;
+    this.getDeckFlow().touchStart(e);
   },
   onDeckTouchEnd(e) {
-    const point = e.changedTouches && e.changedTouches[0];
-    if (!point || !this.deckStart) return;
-    const dx = (point.clientX || point.pageX) - this.deckStart.x;
-    const dy = (point.clientY || point.pageY) - this.deckStart.y;
-    this.deckStart = null;
-    if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy) * 1.15) this.advanceDeck(dx < 0 ? "left" : "right");
-    else this.startDeckFlow();
+    this.getDeckFlow().touchEnd(e);
   },
   advanceDeck(direction) {
-    const count = this.data.displayReports.length;
-    if (this.deckTransitioning || count < 2) return;
-    this.deckTransitioning = true;
-    const nextIndex = (this.data.reportFlowIndex + (direction === "left" ? 1 : -1) + count) % count;
-    this.setData({ deckMotion: `deck-exit-${direction}` });
-    this.deckExitTimer = setTimeout(() => {
-      const recommendations = this.data.displayReports.map((item) => item);
-      this.setData({
-        reportFlowIndex: nextIndex,
-        displayReports: recommendations.map((item, index) => Object.assign({}, item, {
-          active: index === nextIndex,
-          stackSlot: ["stack-front", "stack-middle", "stack-back"][(index - nextIndex + count) % count],
-        })),
-        deckMotion: direction === "left" ? "deck-enter-from-right" : "deck-enter-from-left",
-      });
-      this.deckMotionTimer = setTimeout(() => {
-        this.deckTransitioning = false;
-        this.setData({ deckMotion: "" });
-        this.startDeckFlow();
-      }, 24);
-    }, 300);
+    this.getDeckFlow().advance(direction);
   },
 
   hideReport() {

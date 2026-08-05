@@ -41,3 +41,16 @@ skills-lock.json
 .config/
 AppData/
 tmp-deploy/
+
+# Local Codex and design artifacts
+.codex/
+frontend-effect-mockups/
+output/
+mini-program-page-plan.md
+
+# Developer Console local process helpers and environment template
+admin/.env.example
+admin/admin_guard_loop.ps1
+admin/ensure_admin_guard.ps1
+admin/ensure_admin_service.ps1
+admin/serve_dist.py

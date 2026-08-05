@@ -16,7 +16,7 @@ Page({
     reportService.listMyReports()
       .then((response) => unwrapCloudCall(response, "无法加载历史报告。"))
       .then((data) => Promise.all((data.reports || []).map((report) => {
-        const image = report.coverImage ? resolveCloudFileList([report.coverImage], "Report", (fileList) => wx.cloud.getTempFileURL({ fileList })) : Promise.resolve([]);
+        const image = report.coverImage ? resolveCloudFileList([report.coverImage], "Report") : Promise.resolve([]);
         return image.then((images) => Object.assign({}, report, { coverUrl: images[0] && images[0].url ? images[0].url : "", displayDate: formatDate(report.unlockedAt) }));
       })))
       .then((reports) => this.setData({ loading: false, reports }))

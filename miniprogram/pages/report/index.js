@@ -3,7 +3,11 @@ const paymentService = require("../../services/payment");
 const shareService = require("../../services/share");
 const testService = require("../../services/test");
 const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
-const { resolveCloudFileList } = require("../../utils/media");
+const {
+  resolveCloudFile,
+  resolveCloudFileList,
+  resolveMediaSource,
+} = require("../../utils/media");
 const { mapReportPresentation } = require("../../utils/presentation");
 
 function getDatasetValue(event, key) {
@@ -173,27 +177,20 @@ Page({
   },
 
   resolvePaidImages(report) {
-    return resolveCloudFileList(report.paidImages, "Look", (fileList) => wx.cloud.getTempFileURL({ fileList }));
+    return resolveCloudFileList(report.paidImages, "Look");
   },
 
   resolvePreviewImages(report) {
-    return resolveCloudFileList(report.previewImages, "Look", (fileList) => wx.cloud.getTempFileURL({ fileList }));
+    return resolveCloudFileList(report.previewImages, "Look");
   },
 
   resolveOriginalImage(report) {
     const fileId = report.originalImage || report.originalImageFileId || report.selfieFileId || "";
-    if (!fileId) return Promise.resolve("");
-    return wx.cloud.getTempFileURL({ fileList: [fileId] })
-      .then((res) => res.fileList && res.fileList[0] ? (res.fileList[0].tempFileURL || "") : "")
-      .catch(() => "");
+    return resolveCloudFile(fileId);
   },
 
   resolveProductImage(source) {
-    if (!source) return Promise.resolve("");
-    if (source.indexOf("cloud://") !== 0) return Promise.resolve(source);
-    return wx.cloud.getTempFileURL({ fileList: [source] })
-      .then((res) => res.fileList && res.fileList[0] ? (res.fileList[0].tempFileURL || "") : "")
-      .catch(() => "");
+    return resolveMediaSource(source);
   },
 
   unlockReport() {

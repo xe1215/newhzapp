@@ -1,51 +1,36 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { flagReport, getReportDetail, listReports } from "../lib/admin-api";
 import { DetailList, FilterInput, FiltersBar } from "../components/admin-primitives";
 import { buildReportDetailItems } from "../components/detail-builders";
 import { emptyInvestigationFilters } from "../utils/admin-format";
 import { RecordDetailSection, RecordTableSection, RecordWorkbenchLayout } from "../components/record-workbench";
+import { useOperationalDataView } from "../hooks/useOperationalDataView";
 
 export default function ReportsPage({ token }) {
-  const [filters, setFilters] = useState(emptyInvestigationFilters({ testId: "" }));
-  const [reports, setReports] = useState([]);
-  const [selectedDetail, setSelectedDetail] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [errorText, setErrorText] = useState("");
-  const [successText, setSuccessText] = useState("");
-
-  async function loadData() {
-    setLoading(true);
-    setErrorText("");
-
-    try {
-      const data = await listReports(token, filters);
-      setReports(Array.isArray(data.items) ? data.items : []);
-    } catch (error) {
-      setErrorText(error.message || "\u65e0\u6cd5\u52a0\u8f7d\u62a5\u544a\u8bb0\u5f55\u3002");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const {
+    filters,
+    setFilters,
+    records: reports,
+    selectedDetail,
+    loading,
+    detailLoading,
+    errorText,
+    setErrorText,
+    successText,
+    setSuccessText,
+    loadData,
+    loadSelectedDetail: handleSelect,
+  } = useOperationalDataView({
+    initialFilters: emptyInvestigationFilters({ testId: "" }),
+    loadList: (currentFilters) => listReports(token, currentFilters),
+    loadDetail: (reportId) => getReportDetail(token, reportId),
+    listErrorMessage: "\u65e0\u6cd5\u52a0\u8f7d\u62a5\u544a\u8bb0\u5f55\u3002",
+    detailErrorMessage: "\u65e0\u6cd5\u52a0\u8f7d\u62a5\u544a\u8be6\u60c5\u3002",
+  });
 
   useEffect(() => {
     loadData();
   }, [token, filters.openid, filters.status, filters.testId, filters.startDate, filters.endDate]);
-
-  async function handleSelect(reportId) {
-    setDetailLoading(true);
-    setErrorText("");
-    setSuccessText("");
-
-    try {
-      const detail = await getReportDetail(token, reportId);
-      setSelectedDetail(detail);
-    } catch (error) {
-      setErrorText(error.message || "\u65e0\u6cd5\u52a0\u8f7d\u62a5\u544a\u8be6\u60c5\u3002");
-    } finally {
-      setDetailLoading(false);
-    }
-  }
 
   async function handleFlag(operation) {
     if (!selectedDetail?.reportId) {

@@ -1,51 +1,35 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { getTestDetail, listTests } from "../lib/admin-api";
 import { DetailList, FilterInput, FiltersBar } from "../components/admin-primitives";
 import { buildTestDetailItems } from "../components/detail-builders";
 import { copyText, emptyInvestigationFilters } from "../utils/admin-format";
 import { RecordDetailSection, RecordTableSection, RecordWorkbenchLayout } from "../components/record-workbench";
+import { useOperationalDataView } from "../hooks/useOperationalDataView";
 
 export default function TestsPage({ token }) {
-  const [filters, setFilters] = useState(emptyInvestigationFilters());
-  const [tests, setTests] = useState([]);
-  const [selectedDetail, setSelectedDetail] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [errorText, setErrorText] = useState("");
-  const [successText, setSuccessText] = useState("");
-
-  async function loadData() {
-    setLoading(true);
-    setErrorText("");
-
-    try {
-      const data = await listTests(token, filters);
-      setTests(Array.isArray(data.items) ? data.items : []);
-    } catch (error) {
-      setErrorText(error.message || "无法加载测试记录。");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const {
+    filters,
+    setFilters,
+    records: tests,
+    selectedDetail,
+    loading,
+    detailLoading,
+    errorText,
+    successText,
+    setSuccessText,
+    loadData,
+    loadSelectedDetail: handleSelect,
+  } = useOperationalDataView({
+    initialFilters: emptyInvestigationFilters(),
+    loadList: (currentFilters) => listTests(token, currentFilters),
+    loadDetail: (testId) => getTestDetail(token, testId),
+    listErrorMessage: "无法加载测试记录。",
+    detailErrorMessage: "无法加载测试详情。",
+  });
 
   useEffect(() => {
     loadData();
   }, [token, filters.openid, filters.status, filters.startDate, filters.endDate]);
-
-  async function handleSelect(testId) {
-    setDetailLoading(true);
-    setErrorText("");
-    setSuccessText("");
-
-    try {
-      const detail = await getTestDetail(token, testId);
-      setSelectedDetail(detail);
-    } catch (error) {
-      setErrorText(error.message || "无法加载测试详情。");
-    } finally {
-      setDetailLoading(false);
-    }
-  }
 
   async function handleCopyOpenid() {
     const ok = await copyText(selectedDetail?.openid || "");

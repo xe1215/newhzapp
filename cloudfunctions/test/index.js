@@ -25,13 +25,15 @@ const {
   handleGenerateTryOnPending,
   handleGenerateTryOnSuccess,
   handleGenerateTryOnFailure,
+} = require("./generate-tryon-handlers");
+const {
   handlePreviewLimitReached,
   handlePreviewRecommendationShortage,
   handlePreviewContinuationPending,
   handlePreviewNewPending,
   handlePreviewProviderFailure,
   handlePreviewProviderSuccess,
-} = require("./generation-handlers");
+} = require("./preview-regenerate-handlers");
 const {
   validateActivePreviewState,
   loadPendingRegenerateReport,

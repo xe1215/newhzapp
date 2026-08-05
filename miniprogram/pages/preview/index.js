@@ -104,11 +104,7 @@ Page({
   },
 
   resolvePreviewImages(report) {
-    return resolveCloudFileList(report.previewImages, "Look", (fileList) =>
-      wx.cloud.getTempFileURL({
-        fileList,
-      })
-    );
+    return resolveCloudFileList(report.previewImages, "Look");
   },
 
   unlockReport() {
