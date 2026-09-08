@@ -31,7 +31,9 @@ export function formatCount(value) {
 }
 
 export function formatTimestamp(value) {
-  return value || "未记录";
+  if (!value) return "未记录";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
 }
 
 export function emptyInvestigationFilters(extra) {

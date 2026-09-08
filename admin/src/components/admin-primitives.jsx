@@ -1,24 +1,13 @@
 import React from "react";
+import { Card, Descriptions, Input, Select, Space, Statistic, Tag } from "antd";
 
 export function MetricCard({ label, value, hint }) {
-  return (
-    <article className="metric-card">
-      <p className="metric-label">{label}</p>
-      <strong className="metric-value">{value}</strong>
-      {hint ? <span className="metric-hint">{hint}</span> : null}
-    </article>
-  );
+  return <Card size="small" className="metric-card"><Statistic title={label} value={value} /><span className="metric-hint">{hint || " "}</span></Card>;
 }
 
 export function DetailList({ items }) {
   return (
-    <div className="detail-stack">
-      {items.map((item) => (
-        <p key={item.label}>
-          <strong>{item.label}:</strong> {item.value}
-        </p>
-      ))}
-    </div>
+    <Descriptions column={1} size="small" bordered items={items.map((item) => ({ key: item.label, label: item.label, children: item.value }))} />
   );
 }
 
@@ -30,41 +19,28 @@ export function buildDetailItem(label, value) {
 }
 
 export function FiltersBar({ children }) {
-  return <div className="filters-grid">{children}</div>;
+  return <Space wrap className="filters-grid" align="end">{children}</Space>;
 }
 
 export function FilterInput({ label, value, onChange, placeholder }) {
   return (
-    <label className="field-stack">
-      <span>{label}</span>
-      <input className="field-input" value={value} onChange={onChange} placeholder={placeholder} />
-    </label>
+    <label className="field-stack"><span>{label}</span><Input value={value} onChange={onChange} placeholder={placeholder} /></label>
   );
 }
 
 export function FilterSelect({ label, value, onChange, options }) {
   return (
-    <label className="field-stack">
-      <span>{label}</span>
-      <select className="field-input" value={value} onChange={onChange}>
-        <option value="">全部</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <label className="field-stack"><span>{label}</span><Select style={{ minWidth: 140 }} value={value || undefined} placeholder="全部" options={options} allowClear onChange={(nextValue) => onChange({ target: { value: nextValue || "" } })} /></label>
   );
 }
 
 export function StatusPill({ text, tone }) {
-  return <span className={tone ? `panel-badge ${tone}` : "panel-badge"}>{text || "-"}</span>;
+  return <Tag className={tone ? `panel-badge ${tone}` : "panel-badge"}>{text || "-"}</Tag>;
 }
 
 export function OverviewSection({ title, kicker, badge, children, className }) {
   return (
-    <section className={className ? `subpanel ${className}` : "subpanel"}>
+    <Card size="small" className={className ? `subpanel ${className}` : "subpanel"}>
       <div className="panel-heading">
         <div>
           {kicker ? <p className="panel-kicker">{kicker}</p> : null}
@@ -73,6 +49,6 @@ export function OverviewSection({ title, kicker, badge, children, className }) {
         {badge ? badge : null}
       </div>
       {children}
-    </section>
+    </Card>
   );
 }

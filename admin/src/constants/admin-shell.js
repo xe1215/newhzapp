@@ -17,11 +17,11 @@ export const OVERVIEW_RANGES = [
 export const EMPTY_LIPSTICK_FORM = {
   _id: "",
   brand: "",
-  shadeName: "",
   shadeCode: "",
+  productName: "",
+  texture: "",
+  productImage: "",
   colorHex: "",
-  skinToneTags: "",
-  budgetMin: "",
-  budgetMax: "",
+  budget: "",
   status: "active",
 };

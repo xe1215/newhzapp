@@ -9,8 +9,10 @@ const {
 } = require("./test-core");
 const {
   rankLipsticks,
+  toRecommendationSnapshot,
   validatePreferences,
 } = require("./recommendation");
+const { loadRecommendationRule, loadSharedContent } = require("./recommendation-rules");
 const {
   finishRegeneratedPreview,
 } = require("./generation-flow");
@@ -399,11 +401,20 @@ async function submitPreferences(event, deps) {
     .collection("lipsticks")
     .where({ status: "active" })
     .get();
-  const recommendations = rankLipsticks(
-    lipsticksResult.data || [],
-    preferences,
-    RECOMMENDATION_LIMIT
-  );
+  const lipstickRecords = lipsticksResult.data || [];
+  const rule = await loadRecommendationRule(runtime, preferences);
+  const configuredIds = rule && Array.isArray(rule.lipstickIds) ? rule.lipstickIds.map(String) : [];
+  const configuredRecommendations = configuredIds.length === RECOMMENDATION_LIMIT
+    ? configuredIds
+        .map((id, index) => {
+          const item = lipstickRecords.find((record) => String(record._id) === id && record.status === "active");
+          return item ? toRecommendationSnapshot(item, index + 1, preferences) : null;
+        })
+        .filter(Boolean)
+    : [];
+  const recommendations = configuredRecommendations.length === RECOMMENDATION_LIMIT
+    ? configuredRecommendations
+    : rankLipsticks(lipstickRecords, preferences, RECOMMENDATION_LIMIT);
 
   if (recommendations.length < RECOMMENDATION_LIMIT) {
     return fail("RECOMMENDATION_NOT_ENOUGH", "Not enough active lipsticks matched preferences", {
@@ -411,6 +422,7 @@ async function submitPreferences(event, deps) {
     });
   }
 
+  const sharedContent = await loadSharedContent(runtime, preferences);
   const reportPayload = {
     openid,
     testId: data.testId,
@@ -419,6 +431,7 @@ async function submitPreferences(event, deps) {
     snapshot: {
       preferences,
       recommendations,
+      sharedContent,
       generatedAt: now,
     },
     previewImages: [],

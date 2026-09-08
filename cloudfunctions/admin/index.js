@@ -2,6 +2,7 @@ const { fail, unsupported } = require("./response");
 const { login, logout } = require("./session");
 const { getShell } = require("./shell");
 const { getOverview } = require("./overview");
+const { listRecommendationRules, saveRecommendationRule } = require("./recommendation-rules");
 const {
   exportLipsticksCsv,
   importLipsticksCsv,
@@ -22,7 +23,6 @@ const {
   listProviderRuns,
   listReports,
   listTests,
-  updateOrderRefundHandling,
 } = require("./records");
 
 const ACTIONS = {
@@ -33,6 +33,8 @@ const ACTIONS = {
   listLipsticks,
   saveLipstick,
   setLipstickStatus,
+  listRecommendationRules,
+  saveRecommendationRule,
   importLipsticksCsv,
   exportLipsticksCsv,
   listTests,
@@ -46,7 +48,6 @@ const ACTIONS = {
   listEvents,
   getEventDetail,
   exportEventsCsv,
-  updateOrderRefundHandling,
   flagReport,
 };
 

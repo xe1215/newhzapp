@@ -67,6 +67,19 @@ export default function OperationsDashboardPage({ token }) {
   const recentExceptionOrders = Array.isArray(overview?.recentExceptionOrders)
     ? overview.recentExceptionOrders
     : [];
+  const trend = Array.isArray(overview?.trend) ? overview.trend : [];
+  const trendSeries = [
+    { key: "visits", label: "访问量", color: "#9a6b30" },
+    { key: "tests", label: "测试提交", color: "#3d7891" },
+    { key: "reports", label: "报告生成", color: "#6a8f54" },
+    { key: "paidOrders", label: "支付订单", color: "#b35c45" },
+  ];
+  const trendMax = Math.max(...trend.flatMap((point) => trendSeries.map((series) => Number(point[series.key] || 0))), 1);
+  const trendPoints = (key) => trend.map((point, index) => {
+    const x = trend.length === 1 ? 50 : (index / (trend.length - 1)) * 100;
+    const y = 38 - (Number(point[key] || 0) / trendMax) * 34;
+    return `${x},${y}`;
+  }).join(" ");
 
   const kpis = [
     { label: "访问量", value: formatCount(metrics.visits), hint: "进入小程序或落地页的访问次数" },
@@ -112,35 +125,10 @@ export default function OperationsDashboardPage({ token }) {
       {loading ? <p className="module-copy">正在加载运营数据...</p> : null}
       {errorText ? <p className="error-text">{errorText}</p> : null}
 
-      {!loading && !errorText ? (
+      {!loading ? (
         <>
           {overview?.sampleHint ? <p className="overview-note">{overview.sampleHint}</p> : null}
           {overview?.empty ? <p className="overview-note">{overview.emptyMessage}</p> : null}
-
-          <section className="dashboard-hero-card">
-            <div>
-              <p className="hero-kicker">核心经营信号</p>
-              <h3>收入、转化与风险在一屏查看</h3>
-              <p className="module-copy">
-                当前区间收入 {formatCurrency(metrics.revenueCents)}，支付转化率{" "}
-                {formatPercent(conversion.paymentFromVisitRate)}，重点跟进生成失败和退款异常。
-              </p>
-            </div>
-            <div className="dashboard-hero-stats">
-              <article>
-                <span>总收入</span>
-                <strong>{formatCurrency(metrics.revenueCents)}</strong>
-              </article>
-              <article>
-                <span>试色转支付</span>
-                <strong>{formatPercent(conversion.paymentFromTestRate)}</strong>
-              </article>
-              <article>
-                <span>异常订单</span>
-                <strong>{formatCount(recentExceptionOrders.length)}</strong>
-              </article>
-            </div>
-          </section>
 
           <div className="overview-kpis">
             {kpis.map((item) => (
@@ -148,10 +136,38 @@ export default function OperationsDashboardPage({ token }) {
             ))}
           </div>
 
+          <div className="dashboard-charts">
+            <OverviewSection title="运营趋势" kicker="按日数据">
+              <div className="line-chart" role="img" aria-label="运营趋势折线图">
+                <svg viewBox="0 0 100 42" preserveAspectRatio="none">
+                  {[4, 21, 38].map((y) => <line key={y} x1="0" x2="100" y1={y} y2={y} />)}
+                  {trendSeries.map((series) => <polyline key={series.key} points={trendPoints(series.key)} style={{ stroke: series.color }} />)}
+                </svg>
+                <div className="line-chart-axis">
+                  {trend.map((point) => <span key={point.date}>{point.date.slice(5)}</span>)}
+                </div>
+                <div className="line-chart-legend">
+                  {trendSeries.map((series) => <span key={series.key}><i style={{ background: series.color }} />{series.label}</span>)}
+                </div>
+              </div>
+            </OverviewSection>
+            <OverviewSection title="转化漏斗" kicker="阶段转化">
+              <div className="funnel-grid dashboard-funnel-grid">
+                {funnel.map((item, index) => (
+                  <article key={item.label} className="funnel-card">
+                    <span className="funnel-step">{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{item.label}</strong>
+                    <span className="funnel-value">{formatCount(item.value)}</span>
+                  </article>
+                ))}
+              </div>
+            </OverviewSection>
+          </div>
+
           <div className="dashboard-grid">
             <OverviewSection
               title="最近订单"
-              kicker="Recent Orders"
+              kicker="最近订单"
               badge={<span className="panel-badge">{formatCount(dashboardRecentOrders.length)} 笔</span>}
               className="recent-orders"
             >
@@ -188,7 +204,7 @@ export default function OperationsDashboardPage({ token }) {
             <div className="dashboard-sidepanels">
               <OverviewSection
                 title="风险提醒"
-                kicker="Risk Watch"
+                kicker="风险监测"
                 badge={<span className="panel-badge alert">{formatCount(recentExceptionOrders.length)} 项</span>}
                 className="risk-panel"
               >
@@ -201,39 +217,6 @@ export default function OperationsDashboardPage({ token }) {
                     <span>退款异常</span>
                     <strong>{formatCount(recentExceptionOrders.length)}</strong>
                   </article>
-                </div>
-              </OverviewSection>
-
-              <OverviewSection title="转化摘要">
-                <div className="summary-grid dashboard-summary-grid">
-                  <article className="summary-item">
-                    <span>访问到试色</span>
-                    <strong>{formatPercent(conversion.testFromVisitRate)}</strong>
-                  </article>
-                  <article className="summary-item">
-                    <span>试色到支付</span>
-                    <strong>{formatPercent(conversion.paymentFromTestRate)}</strong>
-                  </article>
-                  <article className="summary-item">
-                    <span>试色到报告浏览</span>
-                    <strong>{formatPercent(conversion.reportViewRate)}</strong>
-                  </article>
-                  <article className="summary-item">
-                    <span>报告浏览到分享</span>
-                    <strong>{formatPercent(conversion.shareVisitRate)}</strong>
-                  </article>
-                </div>
-              </OverviewSection>
-
-              <OverviewSection title="运营漏斗">
-                <div className="funnel-grid dashboard-funnel-grid">
-                  {funnel.map((item, index) => (
-                    <article key={item.label} className="funnel-card">
-                      <span className="funnel-step">{String(index + 1).padStart(2, "0")}</span>
-                      <strong>{item.label}</strong>
-                      <span className="funnel-value">{formatCount(item.value)}</span>
-                    </article>
-                  ))}
                 </div>
               </OverviewSection>
 

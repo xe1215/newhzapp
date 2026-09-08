@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { getTestDetail, listTests } from "../lib/admin-api";
 import { DetailList, FilterInput, FiltersBar } from "../components/admin-primitives";
 import { buildTestDetailItems } from "../components/detail-builders";
-import { copyText, emptyInvestigationFilters } from "../utils/admin-format";
+import { copyText, emptyInvestigationFilters, formatTimestamp } from "../utils/admin-format";
 import { RecordDetailSection, RecordTableSection, RecordWorkbenchLayout } from "../components/record-workbench";
 import { useOperationalDataView } from "../hooks/useOperationalDataView";
 
@@ -69,6 +69,7 @@ export default function TestsPage({ token }) {
                   <th>状态</th>
                   <th>生成状态</th>
                   <th>当前报告</th>
+                  <th>测试时间</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -80,6 +81,7 @@ export default function TestsPage({ token }) {
                     <td>{item.status || "-"}</td>
                     <td>{item.generationStatus || "-"}</td>
                     <td>{item.currentReportId || "-"}</td>
+                    <td>{formatTimestamp(item.createdAt)}</td>
                     <td className="row-actions">
                       <button type="button" className="ghost-button light-ghost" onClick={() => handleSelect(item.testId)}>
                         查看详情

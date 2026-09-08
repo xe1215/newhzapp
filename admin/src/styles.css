@@ -94,6 +94,11 @@ table {
   background: #fffdf9;
 }
 
+.color-hex-input {
+  height: 46px;
+  box-sizing: border-box;
+}
+
 .primary-button,
 .ghost-button {
   border: 0;
@@ -280,6 +285,128 @@ table {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
+}
+
+.dashboard-charts {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.line-chart {
+  display: grid;
+  gap: 10px;
+}
+
+.line-chart svg {
+  width: 100%;
+  height: 190px;
+  overflow: visible;
+  border-bottom: 1px solid rgba(94, 69, 37, 0.12);
+}
+
+.line-chart line {
+  stroke: rgba(94, 69, 37, 0.12);
+  stroke-width: 0.35;
+  vector-effect: non-scaling-stroke;
+}
+
+.line-chart polyline {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.line-chart-axis,
+.line-chart-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8d7762;
+  font-size: 12px;
+}
+
+.line-chart-axis span {
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.line-chart-legend {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.line-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.line-chart-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.bar-chart,
+.funnel-chart {
+  display: grid;
+  gap: 14px;
+}
+
+.bar-chart-item,
+.funnel-chart-row {
+  display: grid;
+  gap: 7px;
+}
+
+.bar-chart-label,
+.funnel-chart-row {
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.bar-chart-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #6f6256;
+  font-size: 13px;
+}
+
+.bar-chart-label strong,
+.funnel-chart-row strong {
+  color: #342313;
+  font-size: 13px;
+}
+
+.bar-chart-track,
+.funnel-chart-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f1e8dc;
+}
+
+.bar-chart-track span,
+.funnel-chart-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #9a6b30;
+}
+
+.funnel-chart-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 10px;
+  color: #6f6256;
+  font-size: 13px;
 }
 
 .metric-hint {
@@ -610,6 +737,22 @@ table {
 .light-ghost {
   background: #efe1cd;
   color: #6f4617;
+}
+
+.product-image-thumb {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.product-image-preview {
+  display: block;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  border: 1px solid rgba(94, 69, 37, 0.12);
+  border-radius: 8px;
 }
 
 @media (max-width: 1100px) {

@@ -608,6 +608,5 @@ module.exports = {
   listEvents,
   getEventDetail,
   exportEventsCsv,
-  updateOrderRefundHandling,
   flagReport,
 };

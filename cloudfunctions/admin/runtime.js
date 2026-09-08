@@ -27,10 +27,8 @@ function isMissingCollectionError(error) {
 }
 
 async function ensureCollection(runtime, name) {
-  const collection = runtime.db.collection(name);
-
-  if (typeof collection.createCollection === "function") {
-    await collection.createCollection();
+  if (runtime.db && typeof runtime.db.createCollection === "function") {
+    await runtime.db.createCollection(name);
     return;
   }
 

@@ -1,28 +1,28 @@
 import React, { useEffect, useState } from "react";
+import { Tabs } from "antd";
 import {
   exportLipsticksCsv,
   importLipsticksCsv,
   listLipsticks,
   saveLipstick,
   setLipstickStatus,
+  uploadLipstickImage,
 } from "../lib/admin-api";
 import { EMPTY_LIPSTICK_FORM } from "../constants/admin-shell";
 import { FilterInput, FiltersBar, FilterSelect } from "../components/admin-primitives";
 import { formatCount } from "../utils/admin-format";
 import { downloadTextFile } from "../utils/download-file";
+import RecommendationRulesPanel from "./RecommendationRulesPanel";
 
 export default function LipstickLibraryPage({ token }) {
   const [filters, setFilters] = useState({
     brand: "",
-    skinToneTag: "",
-    budgetMin: "",
-    budgetMax: "",
+    budget: "",
     status: "",
   });
   const [records, setRecords] = useState([]);
   const [availableFilters, setAvailableFilters] = useState({
     brands: [],
-    skinToneTags: [],
     statuses: ["active", "inactive"],
   });
   const [form, setForm] = useState(EMPTY_LIPSTICK_FORM);
@@ -30,36 +30,55 @@ export default function LipstickLibraryPage({ token }) {
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
   const [successText, setSuccessText] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState("");
+  const [activeTab, setActiveTab] = useState("lipsticks");
 
   function resetForm() {
     setForm(EMPTY_LIPSTICK_FORM);
+    setImagePreview("");
+  }
+
+  function getRecordId(record) {
+    const rawId = record && (record._id || record.id || record.lipstickId || record.productId);
+    return rawId && typeof rawId === "object" ? rawId.$oid || "" : rawId || "";
   }
 
   function applyRecordToForm(record) {
     setForm({
-      _id: record._id || "",
+      _id: getRecordId(record),
       brand: record.brand || "",
-      shadeName: record.shadeName || "",
+      productName: record.productName || record.shadeName || "",
       shadeCode: record.shadeCode || "",
+      texture: record.texture || "",
+      productImage: record.productImage || "",
       colorHex: record.colorHex || "",
-      skinToneTags: Array.isArray(record.skinToneTags) ? record.skinToneTags.join("|") : "",
-      budgetMin: record.budgetMin ?? "",
-      budgetMax: record.budgetMax ?? "",
+      budget: record.budget || "",
       status: record.status || "active",
     });
+    setImagePreview(record.productImageUrl || "");
   }
 
-  async function loadData() {
+  async function loadData(preferredRecord) {
     setLoading(true);
     setErrorText("");
 
     try {
       const data = await listLipsticks(token, filters);
-      setRecords(Array.isArray(data.records) ? data.records : data.items || []);
+      const nextRecords = Array.isArray(data.records) ? data.records : data.items || [];
+      if (preferredRecord && preferredRecord._id) {
+        const exists = nextRecords.some((item) => item._id === preferredRecord._id);
+        setRecords(
+          exists
+            ? nextRecords.map((item) => (item._id === preferredRecord._id ? { ...item, ...preferredRecord } : item))
+            : [preferredRecord, ...nextRecords]
+        );
+      } else {
+        setRecords(nextRecords);
+      }
       setAvailableFilters(
         data.availableFilters || {
           brands: [],
-          skinToneTags: [],
           statuses: ["active", "inactive"],
         }
       );
@@ -72,7 +91,7 @@ export default function LipstickLibraryPage({ token }) {
 
   useEffect(() => {
     loadData();
-  }, [token, filters.brand, filters.skinToneTag, filters.budgetMin, filters.budgetMax, filters.status]);
+  }, [token, filters.brand, filters.budget, filters.status]);
 
   async function handleSave(event) {
     event.preventDefault();
@@ -80,12 +99,38 @@ export default function LipstickLibraryPage({ token }) {
     setSuccessText("");
 
     try {
-      await saveLipstick(token, form);
+      const result = await saveLipstick(token, form);
       setSuccessText("口红记录已保存。");
+      if (result?.record?._id) {
+        setRecords((current) => {
+          const exists = current.some((item) => item._id === result.record._id);
+          return exists
+            ? current.map((item) => (item._id === result.record._id ? { ...item, ...result.record } : item))
+            : [result.record, ...current];
+        });
+      }
       resetForm();
-      await loadData();
+      await loadData(result.record);
     } catch (error) {
       setErrorText(error.message || "保存口红记录失败。");
+    }
+  }
+
+  async function handleImageUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    setUploadingImage(true);
+    setErrorText("");
+    try {
+      const result = await uploadLipstickImage(token, file);
+      setForm((current) => ({ ...current, productImage: result.fileID || "" }));
+      setImagePreview(result.tempFileURL || "");
+      setSuccessText("商品图片已上传。");
+    } catch (error) {
+      setErrorText(error.message || "上传商品图片失败。");
+    } finally {
+      setUploadingImage(false);
+      event.target.value = "";
     }
   }
 
@@ -135,7 +180,7 @@ export default function LipstickLibraryPage({ token }) {
         <div>
           <p className="module-eyebrow">口红库维护</p>
           <h2>口红库维护</h2>
-          <p className="module-copy">维护品牌、色号、预算区间和适配肤色标签，支撑推荐结果和后台筛选。</p>
+          <p className="module-copy">维护品牌、色号和预算区间，支撑推荐结果和后台筛选。</p>
         </div>
         <div className="toolbar-actions">
           <button type="button" className="ghost-button light-ghost" onClick={resetForm}>
@@ -147,6 +192,14 @@ export default function LipstickLibraryPage({ token }) {
         </div>
       </header>
 
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: "lipsticks",
+            label: "口红商品",
+            children: <>
       <FiltersBar>
         <FilterSelect
           label="品牌"
@@ -154,24 +207,7 @@ export default function LipstickLibraryPage({ token }) {
           onChange={(event) => setFilters((current) => ({ ...current, brand: event.target.value }))}
           options={(availableFilters.brands || []).map((item) => ({ value: item, label: item }))}
         />
-        <FilterSelect
-          label="肤色标签"
-          value={filters.skinToneTag}
-          onChange={(event) => setFilters((current) => ({ ...current, skinToneTag: event.target.value }))}
-          options={(availableFilters.skinToneTags || []).map((item) => ({ value: item, label: item }))}
-        />
-        <FilterInput
-          label="最低预算"
-          value={filters.budgetMin}
-          onChange={(event) => setFilters((current) => ({ ...current, budgetMin: event.target.value }))}
-          placeholder="例如 99"
-        />
-        <FilterInput
-          label="最高预算"
-          value={filters.budgetMax}
-          onChange={(event) => setFilters((current) => ({ ...current, budgetMax: event.target.value }))}
-          placeholder="例如 399"
-        />
+        <FilterSelect label="预算" value={filters.budget} onChange={(event) => setFilters((current) => ({ ...current, budget: event.target.value }))} options={["100以内", "100-300", "300+"].map((value) => ({ value, label: value }))} />
         <FilterSelect
           label="状态"
           value={filters.status}
@@ -192,9 +228,10 @@ export default function LipstickLibraryPage({ token }) {
               <thead>
                 <tr>
                   <th>品牌</th>
-                  <th>色号名</th>
-                  <th>色号编码</th>
-                  <th>颜色</th>
+                  <th>产品名称</th>
+                  <th>色号</th>
+                  <th>质地</th>
+                  <th>主图</th>
                   <th>预算区间</th>
                   <th>状态</th>
                   <th>操作</th>
@@ -204,11 +241,12 @@ export default function LipstickLibraryPage({ token }) {
                 {records.map((item) => (
                   <tr key={item._id}>
                     <td>{item.brand || "-"}</td>
-                    <td>{item.shadeName || "-"}</td>
+                    <td>{item.productName || item.shadeName || "-"}</td>
                     <td>{item.shadeCode || "-"}</td>
-                    <td>{item.colorHex || "-"}</td>
+                    <td>{item.texture || "-"}</td>
+                    <td>{item.productImageUrl ? <img className="product-image-thumb" src={item.productImageUrl} alt="商品" /> : item.productImage ? "已配置" : "-"}</td>
                     <td>
-                      {item.budgetMin ?? "-"} - {item.budgetMax ?? "-"}
+                      {item.budget || "-"}
                     </td>
                     <td>{item.status || "-"}</td>
                     <td className="row-actions">
@@ -238,28 +276,34 @@ export default function LipstickLibraryPage({ token }) {
               <input className="field-input" value={form.brand} onChange={(event) => setForm((current) => ({ ...current, brand: event.target.value }))} />
             </label>
             <label className="field-stack">
-              <span>色号名</span>
-              <input className="field-input" value={form.shadeName} onChange={(event) => setForm((current) => ({ ...current, shadeName: event.target.value }))} />
+              <span>产品名称</span>
+              <input className="field-input" value={form.productName} onChange={(event) => setForm((current) => ({ ...current, productName: event.target.value }))} />
             </label>
             <label className="field-stack">
-              <span>色号编码</span>
+              <span>色号</span>
               <input className="field-input" value={form.shadeCode} onChange={(event) => setForm((current) => ({ ...current, shadeCode: event.target.value }))} />
             </label>
             <label className="field-stack">
-              <span>颜色 HEX</span>
-              <input className="field-input" value={form.colorHex} onChange={(event) => setForm((current) => ({ ...current, colorHex: event.target.value }))} />
+              <span>质地</span>
+              <input className="field-input" value={form.texture} onChange={(event) => setForm((current) => ({ ...current, texture: event.target.value }))} />
             </label>
             <label className="field-stack">
-              <span>肤色标签</span>
-              <input className="field-input" value={form.skinToneTags} onChange={(event) => setForm((current) => ({ ...current, skinToneTags: event.target.value }))} placeholder="用 | 分隔多个标签" />
+              <span>上传商品图片</span>
+              <input className="field-input" type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+              {imagePreview ? <img className="product-image-preview" src={imagePreview} alt="商品预览" /> : form.productImage ? <small>已配置图片</small> : null}
             </label>
             <label className="field-stack">
-              <span>最低预算</span>
-              <input className="field-input" value={form.budgetMin} onChange={(event) => setForm((current) => ({ ...current, budgetMin: event.target.value }))} />
+              <span>颜色 HEX 值</span>
+              <input className="field-input color-hex-input" value={form.colorHex} onChange={(event) => setForm((current) => ({ ...current, colorHex: event.target.value }))} placeholder="#CC6677" />
             </label>
             <label className="field-stack">
-              <span>最高预算</span>
-              <input className="field-input" value={form.budgetMax} onChange={(event) => setForm((current) => ({ ...current, budgetMax: event.target.value }))} />
+              <span>预算</span>
+              <select className="field-input" value={form.budget} onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))}>
+                <option value="">请选择预算</option>
+                <option value="100以内">100以内</option>
+                <option value="100-300">100-300</option>
+                <option value="300+">300+</option>
+              </select>
             </label>
             <label className="field-stack">
               <span>状态</span>
@@ -283,7 +327,7 @@ export default function LipstickLibraryPage({ token }) {
             className="csv-textarea"
             value={csvText}
             onChange={(event) => setCsvText(event.target.value)}
-            placeholder="brand,shadeName,shadeCode,colorHex,skinToneTags,budgetMin,budgetMax,status"
+            placeholder="brand,productName,shadeCode,texture,productImage,colorHex,budget,status"
           />
           <div className="form-actions" style={{ marginTop: 16 }}>
             <button type="button" className="primary-button slim-button" onClick={handleImportCsv}>
@@ -292,6 +336,15 @@ export default function LipstickLibraryPage({ token }) {
           </div>
         </section>
       </div>
+            </>,
+          },
+          {
+            key: "recommendations",
+            label: "推荐内容",
+            children: <RecommendationRulesPanel token={token} />,
+          },
+        ]}
+      />
     </section>
   );
 }

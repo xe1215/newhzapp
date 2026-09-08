@@ -496,6 +496,10 @@ test("refund and selfie management use business-service boundaries in the mini p
   assert.match(previewPage, /deleteSelfie/);
   assert.match(paymentResultPage, /requestRefund|refund-help\/index/);
   assert.match(paymentResultPage, /retainOriginalConsent/);
+  assert.match(paymentResultPage, /typeof detail\.checked === "boolean"/);
+  assert.match(paymentResultPage, /typeof detail\.value === "boolean"/);
+  assert.match(paymentResultPage, /detail\.value === "retain"/);
+  assert.match(paymentResultPage, /请先确认原图保存说明。/);
   assert.match(refundHelpPage, /requestRefund/);
   assert.match(refundHelpTemplate, /refund/i);
   assert.match(reportPage, /deleteOriginalSelfie/);

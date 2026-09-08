@@ -96,6 +96,24 @@ function buildFunnel(metrics) {
   ];
 }
 
+function buildTrend(start, end, events, tests, reports, orders) {
+  const points = [];
+  for (let cursor = new Date(start); cursor < new Date(end); cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const date = cursor.toISOString().slice(0, 10);
+    const onDate = (item) => String(item.createdAt || "").slice(0, 10) === date;
+    const dayEvents = events.filter(onDate);
+    points.push({
+      date,
+      visits: countMatchingEvents(dayEvents, ["page_view"]),
+      tests: tests.filter(onDate).length,
+      reports: reports.filter(onDate).length,
+      paidOrders: orders.filter((item) => item.status === "paid" && onDate(item)).length,
+    });
+  }
+
+  return points;
+}
+
 async function getOverview(event, deps) {
   const runtime = getRuntime(deps);
   const data = getEventData(event);
@@ -159,6 +177,7 @@ async function getOverview(event, deps) {
   };
   const conversion = buildConversion(metrics);
   const funnel = buildFunnel(metrics);
+  const trend = buildTrend(start, end, events, tests, reports, orders);
 
   const empty =
     metrics.visits === 0 &&
@@ -181,6 +200,7 @@ async function getOverview(event, deps) {
     metrics,
     conversion,
     funnel,
+    trend,
     recentOrders,
     recentGenerationFailures,
     recentExceptionOrders,

@@ -1,21 +1,11 @@
-const cloud = require("wx-server-sdk");
+const { cloud, createRuntime, ok } = require("../_shared/business-runtime");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
 });
 
-function ok(data) {
-  return {
-    code: 0,
-    message: "ok",
-    data: data || null,
-  };
-}
-
 function getRuntime(deps) {
-  return {
-    db: deps && deps.db ? deps.db : cloud.database(),
-    now: deps && deps.now ? deps.now : () => new Date(),
+  return createRuntime(deps, {
     deleteFile:
       deps && deps.deleteFile
         ? deps.deleteFile
@@ -26,7 +16,7 @@ function getRuntime(deps) {
 
             await cloud.deleteFile({ fileList: [fileID] });
           },
-  };
+  }, { includeWxContext: false });
 }
 
 function isExpired(isoTime, nowMs) {

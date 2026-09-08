@@ -35,14 +35,30 @@ Page({
     feedback: "",
     testId: "",
     photoPath: "",
-    skinTone: "neutral",
-    budget: "mid",
+    skinTone: "冷白皮",
+    budget: "100-300",
+    faceShape: "鹅蛋脸",
     scene: "commute",
     style: "natural",
     submitting: false,
     options: {
-      skinTone: [{ value: "warm", label: "\u6696\u767D" }, { value: "neutral", label: "\u81EA\u7136" }, { value: "cool", label: "\u5C0F\u9EA6" }],
-      budget: [{ value: "low", label: "\u767E\u5143\u5185" }, { value: "mid", label: "100-300" }, { value: "high", label: "300+" }],
+      skinTone: [
+        { value: "冷白皮", label: "冷白皮" },
+        { value: "冷黄皮", label: "冷黄皮" },
+        { value: "暖黄皮", label: "暖黄皮" },
+        { value: "黄黑皮", label: "黄黑皮" },
+      ],
+      budget: [
+        { value: "100以内", label: "100以内" },
+        { value: "100-300", label: "100-300" },
+        { value: "300+", label: "300+" },
+      ],
+      faceShape: [
+        { value: "鹅蛋脸", label: "鹅蛋脸" },
+        { value: "方脸", label: "方脸" },
+        { value: "菱形脸", label: "菱形脸" },
+        { value: "圆脸", label: "圆脸" },
+      ],
       scene: [{ value: "commute", label: "\u901A\u52E4" }, { value: "date", label: "\u7EA6\u4F1A" }],
       style: [{ value: "bold", label: "\u663E\u767D" }, { value: "natural", label: "\u6E29\u67D4" }],
     },
@@ -151,7 +167,13 @@ Page({
     this.setData({ submitting: true, feedback: "" });
     testService.submitPreferences({
       testId: this.data.testId,
-      preferences: { skinTone: this.data.skinTone, budget: this.data.budget, scene: this.data.scene, style: this.data.style },
+      preferences: {
+        skinTone: this.data.skinTone,
+        budget: this.data.budget,
+        faceShape: this.data.faceShape,
+        scene: this.data.scene,
+        style: this.data.style,
+      },
     }).then((response) => {
       const data = unwrapCloudCall(response, ERROR_MESSAGES.UNKNOWN);
       wx.navigateTo({ url: `/pages/generating/index?testId=${data.testId}&reportId=${data.reportId}` });

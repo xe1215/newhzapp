@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { flagReport, getReportDetail, listReports } from "../lib/admin-api";
 import { DetailList, FilterInput, FiltersBar } from "../components/admin-primitives";
 import { buildReportDetailItems } from "../components/detail-builders";
-import { emptyInvestigationFilters } from "../utils/admin-format";
+import { emptyInvestigationFilters, formatTimestamp } from "../utils/admin-format";
 import { RecordDetailSection, RecordTableSection, RecordWorkbenchLayout } from "../components/record-workbench";
 import { useOperationalDataView } from "../hooks/useOperationalDataView";
 
@@ -90,13 +90,13 @@ export default function ReportsPage({ token }) {
           placeholder={"\u8f93\u5165\u6d4b\u8bd5 ID"}
         />
         <FilterInput
-          label={"\u5f00\u59cb\u65e5\u671f"}
+          label={"生成日期（开始）"}
           value={filters.startDate}
           onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))}
           placeholder="YYYY-MM-DD"
         />
         <FilterInput
-          label={"\u7ed3\u675f\u65e5\u671f"}
+          label={"生成日期（结束）"}
           value={filters.endDate}
           onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))}
           placeholder="YYYY-MM-DD"
@@ -119,6 +119,7 @@ export default function ReportsPage({ token }) {
                     <th>openid</th>
                     <th>{"\u72b6\u6001"}</th>
                     <th>{"\u5f02\u5e38\u6807\u8bb0"}</th>
+                    <th>生成时间</th>
                     <th>{"\u64cd\u4f5c"}</th>
                   </tr>
                 </thead>
@@ -130,6 +131,7 @@ export default function ReportsPage({ token }) {
                       <td>{item.openidMasked || "-"}</td>
                       <td>{item.status || "-"}</td>
                       <td>{item.flaggedAt || "-"}</td>
+                      <td>{formatTimestamp(item.createdAt)}</td>
                       <td className="row-actions">
                         <button type="button" className="ghost-button light-ghost" onClick={() => handleSelect(item.reportId)}>
                           {"\u67e5\u770b\u8be6\u60c5"}

@@ -43,9 +43,7 @@ test("detail panels keep full record visibility while sharing a common detail mo
     assert.match(detailBuildersSource, new RegExp(field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   });
 
-  ["refundReason", "adminNote"].forEach((field) => {
-    assert.match(ordersPageSource, new RegExp(field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  });
+  assert.doesNotMatch(ordersPageSource, /updateOrderRefundHandling|保存退款处理/);
 
   assert.match(logsPageSource, /buildEventDetailItems\(selectedEvent\)/);
   assert.match(logsPageSource, /selectedEvent \? \(/);

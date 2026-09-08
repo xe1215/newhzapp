@@ -107,9 +107,30 @@ function buildAdminRecordQuery(filters, fields) {
 }
 
 function parseCsvLine(line) {
-  return String(line || "")
-    .split(",")
-    .map((item) => item.trim());
+  const values = [];
+  let value = "";
+  let quoted = false;
+  const source = String(line || "").replace(/^\uFEFF/, "");
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    const nextCharacter = source[index + 1];
+
+    if (character === '"' && quoted && nextCharacter === '"') {
+      value += '"';
+      index += 1;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      values.push(value.trim());
+      value = "";
+    } else {
+      value += character;
+    }
+  }
+
+  values.push(value.trim());
+  return values;
 }
 
 function toCsvValue(value) {

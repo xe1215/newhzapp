@@ -1,4 +1,5 @@
 const authService = require("../../services/auth");
+const reportService = require("../../services/report");
 const { unwrapCloudCall } = require("../../utils/business");
 const { createDeckFlow } = require("../../utils/card-deck-flow");
 
@@ -43,7 +44,18 @@ Page({
         latestPreview && latestPreview.testId && latestPreview.reportId
           ? latestPreview
           : null,
-    }, () => this.startDeckFlow());
+    }, () => {
+      this.startDeckFlow();
+      reportService.listMyReports()
+        .then((response) => {
+          const reports = unwrapCloudCall(response, "");
+          if (Array.isArray(reports.reports) && reports.reports.length) {
+            wx.removeStorageSync("newhzLatestPreview");
+            this.setData({ latestPreview: null });
+          }
+        })
+        .catch(() => {});
+    });
   },
 
   onHide() { this.stopDeckFlow(); },

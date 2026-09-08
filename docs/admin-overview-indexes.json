@@ -1,6 +1,15 @@
 {
   "collections": [
     {
+      "name": "recommendation_rules",
+      "indexes": [
+        {
+          "name": "skinTone_faceShape_budget",
+          "fields": ["skinTone", "faceShape", "budget"]
+        }
+      ]
+    },
+    {
       "name": "events",
       "indexes": [
         {

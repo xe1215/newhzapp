@@ -1,4 +1,4 @@
-const cloud = require("wx-server-sdk");
+const { cloud, createRuntime, ok, fail, unsupported } = require("../_shared/business-runtime");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -7,37 +7,14 @@ cloud.init({
 const ORDER_AMOUNT_CENTS = 599;
 const ORDER_CURRENCY = "CNY";
 
-function ok(data) {
-  return {
-    code: 0,
-    message: "ok",
-    data: data || null,
-  };
-}
-
-function fail(code, message, data) {
-  return {
-    code: code || -1,
-    message: message || "error",
-    data: data || null,
-  };
-}
-
-function unsupported(action) {
-  return fail("INVALID_ACTION", `Unsupported action: ${action || "unknown"}`);
-}
-
 function getRuntime(deps) {
-  return {
-    db: deps && deps.db ? deps.db : cloud.database(),
-    wxContext: deps && deps.wxContext ? deps.wxContext : cloud.getWXContext(),
-    now: deps && deps.now ? deps.now : () => new Date(),
+  return createRuntime(deps, {
     env: deps && deps.env ? deps.env : process.env,
     id:
       deps && deps.id
         ? deps.id
         : () => `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  };
+  });
 }
 
 function buildOutTradeNo(orderId) {

@@ -14,7 +14,7 @@ Page({
   },
 
   onLoad(query) {
-    this.setData({
+          this.setData({
       orderId: getQueryValue(query, "orderId"),
       testId: getQueryValue(query, "testId"),
       reportId: getQueryValue(query, "reportId"),
@@ -51,10 +51,13 @@ Page({
           paymentStatus: data.paymentStatus || "paid",
           canViewReport: Boolean(data.canViewReport),
           reportId: data.reportId || this.data.reportId,
-          feedback: data.canViewReport
+            feedback: data.canViewReport
             ? ""
-            : "Payment succeeded, but the report is temporarily unavailable. Refund follow-up is required.",
-        });
+              : "Payment succeeded, but the report is temporarily unavailable. Refund follow-up is required.",
+          });
+          if (data.canViewReport) {
+            wx.removeStorageSync("newhzLatestPreview");
+          }
       })
       .catch((error) => {
         this.setData({
@@ -69,8 +72,25 @@ Page({
   },
 
   onRetentionConsentChange(e) {
-    const values = e.detail && Array.isArray(e.detail.value) ? e.detail.value : [];
-    this.setData({ retainOriginalConsent: values.indexOf("retain") !== -1 });
+    const detail = e.detail || {};
+    const checked = typeof detail.checked === "boolean"
+      ? detail.checked
+      : typeof detail.value === "boolean"
+        ? detail.value
+      : Array.isArray(detail.value)
+        ? detail.value.indexOf("retain") !== -1
+        : detail.value === "retain";
+    this.setData({
+      retainOriginalConsent: checked,
+      feedback: checked && this.data.feedback === "请先确认原图保存说明。" ? "" : this.data.feedback,
+    });
+  },
+
+  onRetentionConsentTap() {
+    this.setData({
+      retainOriginalConsent: true,
+      feedback: "",
+    });
   },
 
   viewReport() {

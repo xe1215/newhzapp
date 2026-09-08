@@ -10,7 +10,7 @@
   <view class="preference-panel">
     <view class="pref-row"><view class="pref-title">肤色</view><view class="pref-options"><button wx:for="{{options.skinTone}}" wx:key="value" class="pref-chip {{skinTone === item.value ? 'active' : ''}}" data-field="skinTone" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button></view></view>
     <view class="pref-row"><view class="pref-title">预算</view><view class="pref-options"><button wx:for="{{options.budget}}" wx:key="value" class="pref-chip {{budget === item.value ? 'active' : ''}}" data-field="budget" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button></view></view>
-    <view class="pref-row"><view class="pref-title">场景与风格</view><view class="pref-options"><button wx:for="{{options.scene}}" wx:key="value" class="pref-chip {{scene === item.value ? 'active' : ''}}" data-field="scene" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button><button wx:for="{{options.style}}" wx:key="value" class="pref-chip {{style === item.value ? 'active' : ''}}" data-field="style" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button></view></view>
+    <view class="pref-row"><view class="pref-title">脸型</view><view class="pref-options"><button wx:for="{{options.faceShape}}" wx:key="value" class="pref-chip {{faceShape === item.value ? 'active' : ''}}" data-field="faceShape" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button></view></view>
     <button class="primary-button generate-button" bindtap="startGenerating" loading="{{submitting}}" disabled="{{submitting}}">生成我的试色</button>
   </view>
   <view wx:if="{{feedback}}" class="feedback">{{feedback}}</view>

@@ -1,6 +1,8 @@
 const envId = import.meta.env.VITE_CLOUDBASE_ENV_ID || "";
 const region = import.meta.env.VITE_CLOUDBASE_REGION || "ap-shanghai";
-const accessKey = import.meta.env.VITE_CLOUDBASE_ACCESS_KEY || "";
+// The browser must receive this publishable credential from runtime configuration;
+// never embed it in the static bundle.
+const accessKey = typeof window !== "undefined" ? String(window.__ADMIN_ACCESS_KEY__ || "") : "";
 const previewEnabled = String(import.meta.env.VITE_ADMIN_ENABLE_PREVIEW || "").toLowerCase() === "true";
 const PREVIEW_TOKEN = "__admin_preview__";
 
@@ -40,9 +42,6 @@ function normalizePreviewTags(value) {
 function buildPreviewLipstickFilters(records) {
   return {
     brands: [...new Set(records.map((item) => normalizePreviewText(item.brand)).filter(Boolean))].sort(),
-    skinToneTags: [
-      ...new Set(records.flatMap((item) => normalizePreviewTags(item.skinToneTags)).filter(Boolean)),
-    ].sort(),
     statuses: ["active", "inactive"],
   };
 }
@@ -59,18 +58,7 @@ function filterPreviewLipsticks(records, filters) {
       return false;
     }
 
-    if (safeFilters.skinToneTag) {
-      const tags = normalizePreviewTags(item.skinToneTags);
-      if (!tags.includes(safeFilters.skinToneTag)) {
-        return false;
-      }
-    }
-
-    if (safeFilters.budgetMin && Number(item.budgetMin || 0) < Number(safeFilters.budgetMin)) {
-      return false;
-    }
-
-    if (safeFilters.budgetMax && Number(item.budgetMax || 0) > Number(safeFilters.budgetMax)) {
+    if (safeFilters.budget && item.budget !== safeFilters.budget) {
       return false;
     }
 
@@ -88,10 +76,11 @@ function upsertPreviewLipstick(lipstick) {
     brand: normalizePreviewText(input.brand),
     shadeName: normalizePreviewText(input.shadeName),
     shadeCode: normalizePreviewText(input.shadeCode),
-    colorHex: normalizePreviewText(input.colorHex).toUpperCase(),
-    skinToneTags: normalizePreviewTags(input.skinToneTags),
-    budgetMin: Number(input.budgetMin || 0),
-    budgetMax: Number(input.budgetMax || 0),
+    productName: normalizePreviewText(input.productName || input.shadeName),
+    texture: normalizePreviewText(input.texture),
+    productImage: normalizePreviewText(input.productImage),
+    colorHex: normalizePreviewText(input.colorHex),
+    budget: normalizePreviewText(input.budget),
     status: normalizePreviewText(input.status) || "active",
     createdAt: previous && previous.createdAt ? previous.createdAt : now,
     updatedAt: now,
@@ -273,7 +262,6 @@ function buildPreviewListResponse(extra) {
     records: [],
     availableFilters: {
       brands: [],
-      skinToneTags: [],
       statuses: ["active", "inactive"],
     },
     ...(extra || {}),
@@ -452,6 +440,14 @@ async function createBrowserCloudRuntime() {
       await this.ensureReady();
       return app.callFunction(payload);
     },
+    async uploadFile(payload) {
+      await this.ensureReady();
+      return app.uploadFile(payload);
+    },
+    async getTempFileURL(payload) {
+      await this.ensureReady();
+      return app.getTempFileURL(payload);
+    },
   };
 }
 
@@ -535,7 +531,13 @@ async function invokeAdmin(action, data) {
     updateRuntimeDebug({
       lastError: `Admin action "${action}" failed: ${result.message || result.code || "Unknown admin error."}`,
     });
-    throw new Error(result.message || "Admin request failed.");
+    const details = Array.isArray(result.data?.errors)
+      ? result.data.errors
+          .map((item) => `第${item.rowNumber || ""}行：${item.reason || "数据无效"}`)
+          .filter(Boolean)
+          .join("；")
+      : "";
+    throw new Error([result.message, details].filter(Boolean).join("：") || "Admin request failed.");
   }
 
   return result.data || {};
@@ -559,15 +561,7 @@ export function login(username, password) {
     });
   }
 
-  return getCloudRuntime().then((runtime) => {
-    if (runtime && typeof runtime.ensureDeveloperIdentity === "function") {
-      return runtime
-        .ensureDeveloperIdentity(username, password)
-        .then(() => invokeAdmin("login", { username, password }));
-    }
-
-    return invokeAdmin("login", { username, password });
-  });
+  return invokeAdmin("login", { username, password });
 }
 
 export function logout(token) {
@@ -582,20 +576,63 @@ export function getOverview(token, rangeKey) {
   return invokeWithPreview(token, "getOverview", { token, rangeKey }, () => buildPreviewOverview(rangeKey));
 }
 
-export function listLipsticks(token, filters) {
-  return invokeWithPreview(token, "listLipsticks", { token, filters: filters || {} }, () => {
+export async function listLipsticks(token, filters) {
+  const result = await invokeWithPreview(token, "listLipsticks", { token, filters: filters || {} }, () => {
     const records = filterPreviewLipsticks(previewLipsticks, filters);
     return createPreviewListResponse({
       records,
       availableFilters: buildPreviewLipstickFilters(previewLipsticks),
     });
   });
+
+  const records = Array.isArray(result.records) ? result.records : [];
+  if (isPreviewToken(token) || !records.some((item) => item.productImage)) {
+    return result;
+  }
+
+  const runtime = await getCloudRuntime();
+  if (!runtime || typeof runtime.getTempFileURL !== "function") return result;
+  const fileList = records
+    .map((item) => item.productImage)
+    .filter((fileId) => typeof fileId === "string" && fileId.startsWith("cloud://"));
+  if (!fileList.length) return result;
+
+  let urls;
+  try {
+    urls = await runtime.getTempFileURL({ fileList });
+  } catch (error) {
+    updateRuntimeDebug({
+      lastError: `Temporary product image URLs failed: ${String((error && error.message) || error)}`,
+    });
+    return result;
+  }
+  const urlMap = new Map((urls?.fileList || []).map((item) => [item.fileID, item.tempFileURL]));
+  return { ...result, records: records.map((item) => ({ ...item, productImageUrl: urlMap.get(item.productImage) || "" })) };
 }
 
 export function saveLipstick(token, lipstick) {
   return invokeWithPreview(token, "saveLipstick", { token, lipstick }, () => ({
     record: upsertPreviewLipstick(lipstick),
   }));
+}
+
+export async function uploadLipstickImage(token, file) {
+  if (isPreviewToken(token)) {
+    return { fileID: `preview-image-${Date.now()}`, tempFileURL: URL.createObjectURL(file) };
+  }
+
+  const runtime = await getCloudRuntime();
+  if (!runtime || typeof runtime.uploadFile !== "function") {
+    throw new Error("当前 CloudBase 运行时不支持图片上传。");
+  }
+
+  const extension = String(file?.name || "jpg").split(".").pop().toLowerCase() || "jpg";
+  const result = await runtime.uploadFile({
+    cloudPath: `product-images/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
+    filePath: file,
+  });
+  const urls = await runtime.getTempFileURL({ fileList: [result.fileID] });
+  return { ...result, tempFileURL: urls?.fileList?.[0]?.tempFileURL || "" };
 }
 
 export function setLipstickStatus(token, lipstickId, status) {
@@ -605,6 +642,14 @@ export function setLipstickStatus(token, lipstickId, status) {
     };
     return { record: upsertPreviewLipstick({ ...previous, status }) };
   });
+}
+
+export function listRecommendationRules(token) {
+  return invokeWithPreview(token, "listRecommendationRules", { token }, () => ({ records: [] }));
+}
+
+export function saveRecommendationRule(token, rule) {
+  return invokeWithPreview(token, "saveRecommendationRule", { token, rule }, () => ({ record: rule }));
 }
 
 export function importLipsticksCsv(token, csvText) {
@@ -627,16 +672,16 @@ export function importLipsticksCsv(token, csvText) {
 
 export function exportLipsticksCsv(token) {
   return invokeWithPreview(token, "exportLipsticksCsv", { token }, () => {
-    const header = "brand,shadeName,shadeCode,colorHex,skinToneTags,budgetMin,budgetMax,status";
+    const header = "brand,productName,shadeCode,texture,productImage,colorHex,budget,status";
     const rows = previewLipsticks.map((item) =>
       [
         item.brand,
-        item.shadeName,
+        item.productName || item.shadeName,
         item.shadeCode,
+        item.texture,
+        item.productImage,
         item.colorHex,
-        normalizePreviewTags(item.skinToneTags).join("|"),
-        item.budgetMin,
-        item.budgetMax,
+        item.budget,
         item.status,
       ].join(",")
     );
@@ -771,27 +816,6 @@ export function exportEventsCsv(token, filters) {
     fileName: "events-preview.csv",
     csvText: "eventId,eventName,openid,testId,reportId,orderId,shareId,metadata,createdAt",
   }));
-}
-
-export function updateOrderRefundHandling(token, orderId, payload) {
-  return invokeWithPreview(
-    token,
-    "updateOrderRefundHandling",
-    {
-      token,
-      orderId,
-      refundStatus: payload.refundStatus,
-      refundReason: payload.refundReason,
-      adminNote: payload.adminNote,
-    },
-    () => ({
-      orderId: orderId || "preview-order",
-      refundStatus: payload.refundStatus,
-      refundReason: payload.refundReason,
-      adminNote: payload.adminNote,
-      updatedAt: new Date().toISOString(),
-    })
-  );
 }
 
 export function flagReport(token, reportId, operation, reason) {

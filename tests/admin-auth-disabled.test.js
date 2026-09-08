@@ -128,9 +128,8 @@ test("admin actions can run with login validation disabled for the temporary dev
       data: {
         lipstick: {
           brand: "Brand B",
-          shadeName: "Clear Berry",
+          productName: "Clear Berry",
           shadeCode: "B02",
-          colorHex: "#AA3366",
           skinToneTags: ["cool"],
           budgetMin: 80,
           budgetMax: 160,
@@ -144,7 +143,7 @@ test("admin actions can run with login validation disabled for the temporary dev
 
   assert.strictEqual(saveResult.code, 0);
   assert.strictEqual(saveResult.data.record._id, "lip-2");
-  assert.strictEqual(db.state.lipsticks["lip-2"].shadeName, "Clear Berry");
+  assert.strictEqual(db.state.lipsticks["lip-2"].productName, "Clear Berry");
   assert.ok(
     Object.values(db.state.admin_actions).some(
       (action) => action.operation === "lipstick_create" && action.targetId === "lip-2"

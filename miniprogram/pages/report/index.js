@@ -46,6 +46,7 @@ Page({
     originalImage: "",
     originalDeletedByUser: false,
     sliderPercent: 50,
+    resultClipStyle: "clip-path: inset(0 0 0 50%);",
     sheetState: "peek",
     sheetDrag: 250,
     sheetDragging: false,
@@ -71,7 +72,8 @@ Page({
   selectDetailSection(e) {
     const section = getDatasetValue(e, "section");
     if (["color", "scene", "outfit"].indexOf(section) === -1) return;
-    this.setData({ detailSection: section });
+    this.setData({ detailSection: section }, () => {
+    });
   },
 
   onLoad(query) {
@@ -238,7 +240,11 @@ Page({
     const touch = e.touches && e.touches[0];
     if (!touch || !this.sliderRect) return;
     const percent = Math.max(0, Math.min(100, ((touch.clientX - this.sliderRect.left) / this.sliderRect.width) * 100));
-    this.setData({ sliderPercent: Math.round(percent) });
+    const sliderPercent = Math.round(percent);
+    this.setData({
+      sliderPercent,
+      resultClipStyle: `clip-path: inset(0 0 0 ${sliderPercent}%);`,
+    });
   },
 
   onSheetTouchStart(e) {

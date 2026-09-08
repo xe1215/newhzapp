@@ -4,24 +4,27 @@ const { requireSession } = require("./session");
 const { appendAdminAction } = require("./audit");
 const {
   listCollectionRecords,
-  normalizeBudget,
-  normalizeColorHex,
   normalizeStatus,
-  normalizeTags,
   normalizeText,
   parseCsvLine,
   toCsvValue,
 } = require("./utils");
 
 function validateLipstickInput(input, existingRecords, currentId) {
+  const existing = (existingRecords || []).find((item) => getLipstickId(item) === currentId) || {};
+  const legacyMin = Number(input.budgetMin);
+  const legacyMax = Number(input.budgetMax);
+  const existingMin = Number(existing.budgetMin);
+  const existingMax = Number(existing.budgetMax);
+  const inheritedBudget = existing.budget || (existingMax <= 100 ? "100以内" : existingMin > 300 ? "300+" : existingMin > 100 ? "100-300" : "");
   const lipstick = {
     brand: normalizeText(input.brand),
-    shadeName: normalizeText(input.shadeName),
+    productName: normalizeText(input.productName || input.shadeName),
     shadeCode: normalizeText(input.shadeCode),
-    colorHex: normalizeColorHex(input.colorHex),
-    skinToneTags: normalizeTags(input.skinToneTags),
-    budgetMin: normalizeBudget(input.budgetMin),
-    budgetMax: normalizeBudget(input.budgetMax),
+    texture: normalizeText(input.texture),
+    productImage: normalizeText(input.productImage),
+    colorHex: normalizeText(input.colorHex),
+    budget: String(input.budget || inheritedBudget || (legacyMax <= 100 ? "100以内" : legacyMin > 300 ? "300+" : legacyMin > 100 ? "100-300" : "")).trim(),
     status: normalizeStatus(input.status),
   };
   const errors = [];
@@ -29,43 +32,29 @@ function validateLipstickInput(input, existingRecords, currentId) {
   if (!lipstick.brand) {
     errors.push("brand is required");
   }
-  if (!lipstick.shadeName) {
-    errors.push("shadeName is required");
+  if (!lipstick.productName) {
+    errors.push("productName is required");
   }
   if (!lipstick.shadeCode) {
     errors.push("shadeCode is required");
   }
-  if (!/^#[0-9A-F]{6}$/.test(lipstick.colorHex)) {
-    errors.push("colorHex must be a #RRGGBB value");
-  }
-  if (!lipstick.skinToneTags.length) {
-    errors.push("skinToneTags must contain at least one tag");
-  }
-  if (!Number.isFinite(lipstick.budgetMin) || lipstick.budgetMin < 0) {
-    errors.push("budgetMin must be a valid non-negative number");
-  }
-  if (!Number.isFinite(lipstick.budgetMax) || lipstick.budgetMax < 0) {
-    errors.push("budgetMax must be a valid non-negative number");
-  }
-  if (
-    Number.isFinite(lipstick.budgetMin) &&
-    Number.isFinite(lipstick.budgetMax) &&
-    lipstick.budgetMin > lipstick.budgetMax
-  ) {
-    errors.push("budgetMin cannot be greater than budgetMax");
+  if (!lipstick.budget && currentId && existing._id) {
+    // Historical records may not have had a budget field; allow editing them without inventing a value.
+  } else if (!["100以内", "100-300", "300+"].includes(lipstick.budget)) {
+    errors.push("budget must be 100以内, 100-300, or 300+");
   }
   if (!["active", "inactive"].includes(lipstick.status)) {
     errors.push("status must be active or inactive");
   }
 
   const duplicate = (existingRecords || []).find((item) => {
-    if (item._id === currentId) {
+    if (getLipstickId(item) === currentId) {
       return false;
     }
 
     return (
       normalizeText(item.brand) === lipstick.brand &&
-      normalizeText(item.shadeName) === lipstick.shadeName &&
+      normalizeText(item.productName || item.shadeName) === lipstick.productName &&
       normalizeText(item.shadeCode) === lipstick.shadeCode
     );
   });
@@ -78,6 +67,19 @@ function validateLipstickInput(input, existingRecords, currentId) {
     lipstick,
     errors,
   };
+}
+
+function getLipstickId(record) {
+  const rawId = record && (record._id || record.id || record.lipstickId || record.productId);
+  if (rawId && typeof rawId === "object") {
+    return normalizeText(rawId.$oid || rawId.toString());
+  }
+  return normalizeText(rawId);
+}
+
+function documentData(record) {
+  const { _id, ...data } = record;
+  return data;
 }
 
 function filterLipsticks(records, filters) {
@@ -98,24 +100,7 @@ function filterLipsticks(records, filters) {
       return false;
     }
 
-    if (normalizedFilters.skinToneTag) {
-      const tags = normalizeTags(item.skinToneTags).map((tag) => tag.toLowerCase());
-      if (!tags.includes(normalizeText(normalizedFilters.skinToneTag).toLowerCase())) {
-        return false;
-      }
-    }
-
-    if (
-      Number.isFinite(Number(normalizedFilters.budgetMin)) &&
-      Number(item.budgetMin || 0) < Number(normalizedFilters.budgetMin)
-    ) {
-      return false;
-    }
-
-    if (
-      Number.isFinite(Number(normalizedFilters.budgetMax)) &&
-      Number(item.budgetMax || 0) > Number(normalizedFilters.budgetMax)
-    ) {
+    if (normalizedFilters.budget && (item.budget || "") !== normalizedFilters.budget) {
       return false;
     }
 
@@ -123,19 +108,26 @@ function filterLipsticks(records, filters) {
   });
 }
 
+function mapLipstickRecord(record) {
+  return {
+    _id: getLipstickId(record),
+    brand: record.brand || "",
+    productName: record.productName || record.shadeName || "",
+    shadeCode: record.shadeCode || "",
+    texture: record.texture || "",
+    productImage: record.productImage || "",
+    colorHex: record.colorHex || "",
+    budget: record.budget || (Number(record.budgetMax) <= 100 ? "100以内" : Number(record.budgetMin) > 300 ? "300+" : Number(record.budgetMin) > 100 ? "100-300" : ""),
+    status: record.status || "inactive",
+    createdAt: record.createdAt || "",
+    updatedAt: record.updatedAt || "",
+  };
+}
+
 function buildLipstickFilters(records) {
   const brands = [...new Set((records || []).map((item) => normalizeText(item.brand)).filter(Boolean))].sort();
-  const skinToneTags = [
-    ...new Set(
-      (records || [])
-        .flatMap((item) => normalizeTags(item.skinToneTags))
-        .filter(Boolean)
-    ),
-  ].sort();
-
   return {
     brands,
-    skinToneTags,
     statuses: ["active", "inactive"],
   };
 }
@@ -155,7 +147,7 @@ async function listLipsticks(event, deps) {
   return ok({
     records: filtered.sort((left, right) =>
       `${left.brand || ""}${left.shadeCode || ""}`.localeCompare(`${right.brand || ""}${right.shadeCode || ""}`)
-    ),
+    ).map(mapLipstickRecord),
     availableFilters: buildLipstickFilters(records),
   });
 }
@@ -170,9 +162,11 @@ async function saveLipstick(event, deps) {
   }
 
   const input = data.lipstick || {};
-  const lipstickId = normalizeText(input._id);
+  const lipstickId = normalizeText(input._id || input.id || input.lipstickId || input.productId);
   const records = await listCollectionRecords(runtime, "lipsticks");
-  const previous = lipstickId ? (await runtime.db.collection("lipsticks").doc(lipstickId).get()).data || null : null;
+  const previous = lipstickId
+    ? (records.find((item) => getLipstickId(item) === lipstickId) || null)
+    : null;
   const { lipstick, errors } = validateLipstickInput(input, records, lipstickId || "");
 
   if (errors.length) {
@@ -189,7 +183,7 @@ async function saveLipstick(event, deps) {
   };
 
   await runtime.db.collection("lipsticks").doc(nextId).set({
-    data: nextRecord,
+    data: documentData(nextRecord),
   });
 
   await appendAdminAction(
@@ -236,7 +230,7 @@ async function setLipstickStatus(event, deps) {
   };
 
   await runtime.db.collection("lipsticks").doc(lipstickId).set({
-    data: nextRecord,
+    data: documentData(nextRecord),
   });
 
   await appendAdminAction(
@@ -264,14 +258,27 @@ async function importLipsticksCsv(event, deps) {
 
   const csvText = String(data.csvText || "");
   const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length < 2) {
+  const firstLineColumnCount = parseCsvLine(lines[0] || "").length;
+  const hasSingleHeaderlessRow = lines.length === 1 && [8, 9].includes(firstLineColumnCount);
+  if (lines.length < 2 && !hasSingleHeaderlessRow) {
     return fail("INVALID_CSV_IMPORT", "CSV must contain a header and at least one row", {
       errors: [{ rowNumber: 1, reason: "No data rows found" }],
     });
   }
 
-  const headers = parseCsvLine(lines[0]);
+  const headers = parseCsvLine(lines[0]).map((header) => header.replace(/^\uFEFF/, ""));
   const requiredHeaders = [
+    "brand",
+    "productName",
+    "shadeCode",
+    "texture",
+    "productImage",
+    "colorHex",
+    "budget",
+    "status",
+  ];
+
+  const legacyHeaders = [
     "brand",
     "shadeName",
     "shadeCode",
@@ -281,8 +288,9 @@ async function importLipsticksCsv(event, deps) {
     "budgetMax",
     "status",
   ];
-
-  if (headers.join(",") !== requiredHeaders.join(",")) {
+  const isLegacyTemplate = headers.join(",") === legacyHeaders.join(",");
+  const isHeaderlessTemplate = [8, 9].includes(headers.length) && !isLegacyTemplate && headers.join(",") !== requiredHeaders.join(",");
+  if (headers.join(",") !== requiredHeaders.join(",") && !isLegacyTemplate && !isHeaderlessTemplate) {
     return fail("INVALID_CSV_IMPORT", "CSV header does not match the expected template", {
       errors: [{ rowNumber: 1, reason: "Unexpected header columns" }],
     });
@@ -292,18 +300,41 @@ async function importLipsticksCsv(event, deps) {
   const stagedRecords = [];
   const seenKeys = new Set(
     existingRecords.map((item) =>
-      [normalizeText(item.brand), normalizeText(item.shadeName), normalizeText(item.shadeCode)].join("::")
+      [normalizeText(item.brand), normalizeText(item.productName || item.shadeName), normalizeText(item.shadeCode)].join("::")
     )
   );
   const errors = [];
 
-  for (let index = 1; index < lines.length; index += 1) {
-    const values = parseCsvLine(lines[index]);
-    const record = Object.fromEntries(headers.map((header, valueIndex) => [header, values[valueIndex] || ""]));
-    const rowNumber = index + 1;
+  const dataLines = isHeaderlessTemplate ? lines : lines.slice(1);
+  const headerlessNineColumnHeaders = [
+    "brand",
+    "productName",
+    "shadeCode",
+    "texture",
+    "productImage",
+    "colorHex",
+    "skinToneTags",
+    "budget",
+    "status",
+  ];
+  const rowHeaders = isHeaderlessTemplate
+    ? (headers.length === headerlessNineColumnHeaders.length ? headerlessNineColumnHeaders : requiredHeaders)
+    : headers;
+  for (let index = 0; index < dataLines.length; index += 1) {
+    const values = parseCsvLine(dataLines[index]);
+    const record = Object.fromEntries(
+      rowHeaders.map((header, valueIndex) => [header, values[valueIndex] || ""])
+    );
+    if (isLegacyTemplate) {
+      record.productName = record.shadeName;
+      const min = Number(record.budgetMin);
+      const max = Number(record.budgetMax);
+      record.budget = max <= 100 ? "100以内" : min > 300 ? "300+" : "100-300";
+    }
+    const rowNumber = isHeaderlessTemplate ? index + 1 : index + 2;
     const key = [
       normalizeText(record.brand),
-      normalizeText(record.shadeName),
+      normalizeText(record.productName),
       normalizeText(record.shadeCode),
     ].join("::");
     const validation = validateLipstickInput(record, [], "");
@@ -341,7 +372,7 @@ async function importLipsticksCsv(event, deps) {
       updatedAt: now,
     };
     await runtime.db.collection("lipsticks").doc(lipstickId).set({
-      data: nextRecord,
+      data: documentData(nextRecord),
     });
     importedRecords.push(nextRecord);
   }
@@ -375,12 +406,12 @@ async function exportLipsticksCsv(event, deps) {
   const records = await listCollectionRecords(runtime, "lipsticks");
   const header = [
     "brand",
-    "shadeName",
+    "productName",
     "shadeCode",
+    "texture",
+    "productImage",
     "colorHex",
-    "skinToneTags",
-    "budgetMin",
-    "budgetMax",
+    "budget",
     "status",
   ];
   const rows = records
@@ -390,12 +421,12 @@ async function exportLipsticksCsv(event, deps) {
     .map((item) =>
       [
         item.brand,
-        item.shadeName,
+        item.productName || item.shadeName,
         item.shadeCode,
+        item.texture,
+        item.productImage,
         item.colorHex,
-        normalizeTags(item.skinToneTags).join("|"),
-        item.budgetMin,
-        item.budgetMax,
+        item.budget,
         item.status,
       ]
         .map(toCsvValue)
