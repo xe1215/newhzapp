@@ -1,1 +1,2 @@
-${installPath} cloud functions deploy --e ${envId} --n quickstartFunctions --r --project ${projectPath}
+# quickstartFunctions is an SDK example and is intentionally excluded from deployment.
+# Deploy business functions explicitly from their own directories.

@@ -9,24 +9,11 @@ const {
   parseCsvLine,
   toCsvValue,
 } = require("./utils");
+const { budgetOf, lipstickFields, mapLipstick } = require("./record-adapters");
 
 function validateLipstickInput(input, existingRecords, currentId) {
   const existing = (existingRecords || []).find((item) => getLipstickId(item) === currentId) || {};
-  const legacyMin = Number(input.budgetMin);
-  const legacyMax = Number(input.budgetMax);
-  const existingMin = Number(existing.budgetMin);
-  const existingMax = Number(existing.budgetMax);
-  const inheritedBudget = existing.budget || (existingMax <= 100 ? "100以内" : existingMin > 300 ? "300+" : existingMin > 100 ? "100-300" : "");
-  const lipstick = {
-    brand: normalizeText(input.brand),
-    productName: normalizeText(input.productName || input.shadeName),
-    shadeCode: normalizeText(input.shadeCode),
-    texture: normalizeText(input.texture),
-    productImage: normalizeText(input.productImage),
-    colorHex: normalizeText(input.colorHex),
-    budget: String(input.budget || inheritedBudget || (legacyMax <= 100 ? "100以内" : legacyMin > 300 ? "300+" : legacyMin > 100 ? "100-300" : "")).trim(),
-    status: normalizeStatus(input.status),
-  };
+  const lipstick = lipstickFields(input, existing);
   const errors = [];
 
   if (!lipstick.brand) {
@@ -109,19 +96,7 @@ function filterLipsticks(records, filters) {
 }
 
 function mapLipstickRecord(record) {
-  return {
-    _id: getLipstickId(record),
-    brand: record.brand || "",
-    productName: record.productName || record.shadeName || "",
-    shadeCode: record.shadeCode || "",
-    texture: record.texture || "",
-    productImage: record.productImage || "",
-    colorHex: record.colorHex || "",
-    budget: record.budget || (Number(record.budgetMax) <= 100 ? "100以内" : Number(record.budgetMin) > 300 ? "300+" : Number(record.budgetMin) > 100 ? "100-300" : ""),
-    status: record.status || "inactive",
-    createdAt: record.createdAt || "",
-    updatedAt: record.updatedAt || "",
-  };
+  return { ...mapLipstick(record), _id: getLipstickId(record), status: record.status || "inactive", budget: budgetOf(record) };
 }
 
 function buildLipstickFilters(records) {
