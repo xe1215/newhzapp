@@ -43,7 +43,10 @@ AppData/
 tmp-deploy/
 
 # Local Codex and design artifacts
-.codex/
+.codex/*
+!.codex/config.toml
+!.codex/agents/
+!.codex/agents/*.toml
 frontend-effect-mockups/
 output/
 mini-program-page-plan.md

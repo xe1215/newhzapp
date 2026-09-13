@@ -157,6 +157,13 @@ test("user cloud function silently logs in and upserts users through OPENID", as
   assert.strictEqual(calls[3][0], "add");
 });
 
+test("user cloud function is self-contained for single-function deployment", () => {
+  const userSource = readText("cloudfunctions/user/index.js");
+  assert.match(userSource, /require\("\.\/business-runtime"\)/);
+  assert.ok(exists("cloudfunctions/user/business-runtime.js"));
+  assert.doesNotMatch(userSource, /require\("\.\.\/_shared\/business-runtime"\)/);
+});
+
 test("business cloud function skeletons exist by domain", () => {
   for (const functionName of [
     "user",

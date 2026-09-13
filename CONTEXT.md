@@ -1,67 +1,98 @@
-# Lipstick Try-On
+# NewHz 产品语境与领域语言
 
-This context describes the product language for a WeChat Mini Program that lets a user preview lipstick try-on results, pay to unlock a report, and lets the developer operate the service.
+> 更新日期：2026-09-12。本文定义团队沟通中的标准术语；产品状态以 `PRD.md`，技术事实以 `TECH.md` 为准。
 
-## Language
+## 产品一句话
 
-**Developer Console**:
-A single-person web operations surface used by the developer to maintain product data and inspect operational records. It is not a multi-admin operations platform and is separate from the WeChat Mini Program.
-_Avoid_: Admin system, operator portal, back office
+NewHz 让微信用户用自己的自拍预览三支个性化口红效果，并在解锁后获得可回看、可分享的完整推荐报告。
 
-**Developer**:
-The only person expected to use the Developer Console in the first version.
-_Avoid_: Admin, operator, staff
+## 核心领域对象
 
-**Operational Data View**:
-Read-only visibility into Mini Program activity and business records, including tests, reports, orders, image-generation runs, shares, and tracked events. It supports inspection and troubleshooting, not arbitrary editing of every record.
-_Avoid_: Full database editor, analytics platform
+**试色测试（Try-on Test）**
 
-**Report Inspection**:
-Developer-only viewing of report details and related image links for troubleshooting generation, watermarking, payment unlock, and delivery issues. It is not a media library and does not support bulk image download.
-_Avoid_: Asset browser, image gallery
+一次从自拍、偏好到生成和换组的用户会话。它拥有一张原自拍、偏好、生成状态、换组次数和当前激活报告。不要把它称为订单或报告。
 
-**Managed Lipstick**:
-A lipstick shade record that the Developer can create, edit, activate, or deactivate from the Developer Console.
-_Avoid_: Product SKU, merchandise item
+**预览组 / 报告（Report）**
 
-**Exception Order**:
-An order that needs developer review because payment, report delivery, or refund handling did not complete cleanly. The Developer Console may update its handling status and reason, but it does not directly initiate a WeChat refund in the first version.
-_Avoid_: Support ticket, transaction
+同一个对象的两个阶段：免费阶段是一组三张水印预览，解锁后是同一组对应的完整报告。每次成功换组创建新 report，旧 report 被替换。不要另造 preview group 概念。
 
-**Operations Overview**:
-The Developer Console home view that summarizes recent Mini Program activity, generation health, payment results, report views, share visits, and current exceptions over a chosen date range.
-_Avoid_: Analytics dashboard, BI dashboard
+**当前激活报告（Active Report）**
 
-**Developer Login**:
-The single-password authentication gate for the Developer Console. It identifies only the Developer and does not create user accounts, registration, roles, or staff permissions.
-_Avoid_: Admin account system, role-based access control
+当前测试中唯一可创建新订单的 report，由 `activeReportId` 指向。订单创建后固定绑定 report，不随之后的换组漂移。
 
-## Example Dialogue
+**推荐快照（Recommendation Snapshot）**
 
-Developer: "I need to adjust the lipstick library and inspect failed image generations."
+报告创建时保存的三支口红和共享建议。口红库后续修改不应重写历史报告的核心推荐事实。
 
-Domain expert: "Those belong in the Developer Console because they are developer-only operational tasks, not user-facing Mini Program features."
+**水印预览图（Preview Image）**
 
-Developer: "Should I put this inside the Mini Program as a hidden page?"
+免费阶段展示的图片，由程序从正式试色图派生并带有可见水印。不要称为低清原图。
 
-Domain expert: "No. The Developer Console is an independent web surface because its work is table-heavy and developer-only."
+**正式试色图（Paid/Clean Image）**
 
-Developer: "Can I change production data from the console?"
+图像供应商生成、仅在报告解锁后返回给报告所有者的无水印图片。
 
-Domain expert: "Only narrow operational records: Managed Lipsticks, Exception Orders, and report visibility or exception markers. Other Operational Data Views are for inspection."
+**成功换组（Successful Regeneration）**
 
-Developer: "Can I inspect the generated try-on images?"
+新三支推荐和三组图片全部完成、新 report 成为 active 后才算成功并消耗一次机会。异步生成中或失败不消耗次数。
 
-Domain expert: "Yes, through Report Inspection for troubleshooting. The console should not turn those user images into a browsable or downloadable media library."
+**开发者后台（Developer Console）**
 
-Developer: "Can the console refund an order?"
+供唯一开发者维护口红与推荐规则、观察运行情况和排查记录的独立 Web 工具。不是多管理员后台、BI 平台或数据库编辑器。
 
-Domain expert: "No. The Developer handles the money movement in the WeChat Pay merchant platform, then records the handling result on the Exception Order."
+**运营数据视图（Operational Data View）**
 
-Developer: "What should I see first when I open the console?"
+对测试、报告、订单、生成记录和事件的筛选、列表与详情查看。默认是排障工具，不意味着可以任意修改业务数据。
 
-Domain expert: "The Operations Overview should show whether users are arriving, tests are being generated, payments are working, reports are being viewed, and exceptions need attention."
+**异常订单（Exception Order）**
 
-Developer: "Do I need user accounts for the console?"
+已经支付但报告不可查看、需要退款跟进的订单。后台和小程序可记录处理意图，实际资金退款在微信支付商户平台完成。
 
-Domain expert: "No. The Developer Login protects the Developer Console as a single-person tool."
+**推荐规则（Recommendation Rule）**
+
+开发者按肤色、脸型和预算配置的三支固定组合及共享建议。有效规则优先于通用评分；规则缺失时才回退到评分推荐。
+
+## 参与者与权限
+
+| 参与者 | 可以做 | 不可以做 |
+|---|---|---|
+| 小程序用户 | 管理自己的测试、报告、自拍、分享和异常退款申请 | 读取他人自拍、未解锁付费内容或后台数据 |
+| 开发者 | 通过后台查看运营记录、维护口红/推荐规则、标记报告异常 | 在第一版中创建多管理员、直接从后台执行真实退款 |
+| 分享访客 | 通过有效 shareId 查看单支公开分享内容 | 查看原自拍、整份报告或其他推荐 |
+| 图像供应商 | 接收生成所需图片与提示并返回结果 | 决定口红推荐、生成水印或接触支付数据 |
+
+## 当前产品边界
+
+- 推荐是规则系统，不是由生成式 AI 决策。
+- 即梦负责生成图像；程序负责水印、状态、权限和记录。
+- “支付闭环已实现”仅指订单/解锁状态机；当前真实微信支付网关仍未接入。
+- “自拍检查已实现”仅指校验与拒绝逻辑；真实服务端审核信号仍未接入。
+- 已付原图因报告对比被保留，用户仍可主动删除；未付数据按 24 小时规则清理。
+- 分享是单支推荐的公开卡片，不是公开完整报告。
+
+## 推荐用语
+
+- 使用“开发者后台”，避免“多管理员系统”“运营中台”。
+- 使用“口红库”，避免“商品 SKU 库”，因为产品不做交易商城。
+- 使用“报告解锁”，避免“购买口红”。
+- 使用“退款申请/退款跟进”，避免“后台自动退款”。
+- 使用“待生产验证”，避免仅凭代码写“已上线”。
+- 使用“测试基线失败”，在未分类前不要直接称为“18 个产品 Bug”。
+
+## 典型对话
+
+开发者：“为什么预览只能看到图片？”
+
+领域回答：“免费预览刻意不返回品牌、色号和建议；这些属于解锁后的完整报告。”
+
+开发者：“用户换组后，之前创建的订单解锁哪一组？”
+
+领域回答：“订单始终解锁创建订单时绑定的 report；新订单只能为当时的 active report 创建。”
+
+开发者：“后台能直接给用户退款吗？”
+
+领域回答：“不能。当前只记录异常退款申请，资金操作仍在微信支付商户平台。”
+
+开发者：“代码里有支付接口，是否可以直接上线？”
+
+领域回答：“不可以。当前是 mock prepay 和客户端确认路径，必须接入真实下单、`wx.requestPayment` 和可信回调。”

@@ -57,7 +57,13 @@ Page({
     tabLabels: ["A", "B", "C"],
   },
 
-  goBack() { wx.navigateBack({ delta: 1 }); },
+  goBack() {
+    if (this.returnToReports) {
+      wx.redirectTo({ url: "/pages/my-reports/index" });
+      return;
+    }
+    wx.navigateBack({ delta: 1 });
+  },
 
   selectRecommendation(e) {
     const index = Number(getDatasetValue(e, "index") || 0);
@@ -77,6 +83,7 @@ Page({
   },
 
   onLoad(query) {
+    this.returnToReports = getQueryValue(query, "returnToReports") === "1";
     this.setData({
       testId: getQueryValue(query, "testId"),
       reportId: getQueryValue(query, "reportId"),

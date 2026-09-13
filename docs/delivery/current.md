@@ -36,6 +36,9 @@
 - P1：生产业务指标尚未从 CloudBase 建立可信基线，不能判断转化、生成成功率和支付交付质量。
 - P1：需在目标 CloudBase 环境验证即梦异步生成、水印、存储权限、后台会话和定时清理。
 - 2026-09-13：修复并部署 report 云函数的单函数打包依赖问题；线上函数状态为 Active/Available，待报告页实际访问回归。
+- 2026-09-13：修复并部署 user 云函数单函数部署时引用包外运行时的问题；CloudBase 状态为 Active/Available，待微信开发者工具验证首页账号初始化。
+- 2026-09-13：修复并部署 payment、share、cleanupExpiredData 的单函数包外运行时依赖；线上代码详情确认改为包内 `./business-runtime`，payment/share 为 Active/Available，cleanupExpiredData 正在完成更新。
+- 2026-09-13：按需求移除付费报告顶部返回/分享入口及报告首页底部分享/隐藏入口；支付结果进入报告详情时携带返回报告列表标记，相关脚本检查通过。
 - P2：后台构建产物存在大于 500 kB 的 chunk 警告，应先测量实际加载影响再决定优化。
 
 ## 下一步

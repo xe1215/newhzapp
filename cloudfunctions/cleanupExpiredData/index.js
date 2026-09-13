@@ -1,4 +1,4 @@
-const { cloud, createRuntime, ok } = require("../_shared/business-runtime");
+const { cloud, createRuntime, ok } = require("./business-runtime");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,

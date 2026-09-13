@@ -11,6 +11,5 @@
       <view class="style-tags"><text>{{item.brand}}</text><text>{{item.primaryTag}}</text></view><view wx:if="{{item.active}}" class="chipline">点击查看完整 {{item.label}} 号报告</view>
     </view></block></view>
   </view>
-  <view wx:if="{{selectedReport}}" class="report-footer-actions"><view class="text-action pressable" bindtap="shareReport" hover-class="pressable-hover">分享当前报告</view><view class="text-action pressable" bindtap="hideReport" hover-class="pressable-hover">隐藏这份报告</view></view>
   <view class="bottom-nav"><view class="nav-item pressable" bindtap="openHome" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/home.svg" mode="aspectFit"/><text>首页</text></view><view class="nav-item active pressable" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/report.svg" mode="aspectFit"/><text>报告</text></view><view class="nav-item pressable" bindtap="openMy" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/user.svg" mode="aspectFit"/><text>我的</text></view></view>
 </view>

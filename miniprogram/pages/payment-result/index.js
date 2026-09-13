@@ -109,7 +109,7 @@ Page({
     }
 
     wx.redirectTo({
-      url: `/pages/report/index?testId=${this.data.testId}&reportId=${this.data.reportId}`,
+      url: `/pages/report/index?testId=${this.data.testId}&reportId=${this.data.reportId}&returnToReports=1`,
     });
   },
 

@@ -1,5 +1,14 @@
 # 当前交接
 
+## Handoff Contract：账号初始化函数单包依赖修复
+
+- Contract ID：`HANDOFF-ITER-005-003`
+- 状态：已部署，待首页回归
+- 目标：让 `user` 云函数单独部署时自包含运行时，消除首页误显示“正在准备账号”。
+- 证据：`cloudfunctions/user/index.js` 改为引用包内 `./business-runtime`，并新增同目录运行时文件；`tests/issue1.test.js` 已覆盖。
+- 部署证据：CLI 部署成功；函数详情 `Active/Available`，`CodeResult: success`，更新时间 `2026-09-13 15:07:01`。
+- 下一步：在微信开发者工具重新打开首页，确认静默登录成功且点击“开始试色”进入上传页。
+
 ## Handoff Contract：报告函数线上启动修复
 
 - Contract ID：`HANDOFF-ITER-005-002`
@@ -7,6 +16,22 @@
 - 目标：修复 `report` 云函数单函数部署包缺少共享运行时导致的 `MODULE_NOT_FOUND`。
 - 证据：`report-core.js` 已改用函数包内 `./business-runtime`；`report` 已部署到 `newhzapp-d4g8fk4yiaa3fa679`，函数详情为 `Active/Available`。
 - 下一步：重新打开报告页，确认报告内容、图片和查看事件恢复。
+
+## Handoff Contract：其余函数单包依赖修复
+
+- Contract ID：`HANDOFF-ITER-005-004`
+- 状态：已部署，待小程序链路回归
+- 目标：消除 `payment`、`share`、`cleanupExpiredData` 对包外 `../_shared/business-runtime` 的依赖。
+- 证据：三个函数均新增包内 `business-runtime.js` 并改用 `./business-runtime`；payment/share 线上详情为 `Active/Available` 且代码结果成功，cleanupExpiredData 已上传并处于更新完成流程。
+- 下一步：微信开发者工具重新编译后，依次验证首页登录、预览加载、解锁支付和分享入口。
+
+## Handoff Contract：报告入口精简
+
+- Contract ID：`HANDOFF-ITER-005-005`
+- 状态：已完成，待微信开发者工具回归
+- 目标：移除付费报告顶部返回/分享按钮与报告首页底部分享/隐藏按钮，避免支付链路返回时停留在中间页面。
+- 证据：对应 WXML 节点已删除；支付结果进入报告详情增加 `returnToReports=1`，报告返回逻辑按标记重定向到报告列表。
+- 下一步：重新编译后验证支付完成、查看报告和系统返回行为。
 
 ## Handoff Contract：主协调 -> 主协调 / QA
 
