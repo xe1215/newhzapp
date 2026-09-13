@@ -7,7 +7,7 @@ const {
   getEventData,
   getOpenId,
   requireOpenId,
-} = require("../_shared/business-runtime");
+} = require("./business-runtime");
 
 function getRuntime(deps) {
   return createRuntime(deps);
