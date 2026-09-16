@@ -11,6 +11,7 @@ Page({
     feedback: "",
     loading: true,
     recommendation: null,
+    shareCardImage: "",
     shareStats: null,
     restartPath: "/pages/home/index",
   },
@@ -40,6 +41,7 @@ Page({
         this.setData({
           loading: false,
           recommendation: data.recommendation || null,
+          shareCardImage: data.shareCardImage || "",
           shareStats: data.shareStats || null,
           restartPath: getRestartPath(data.restartPath),
         });

@@ -1,17 +1,12 @@
-<view class="page">
-  <view class="title">Free preview</view>
-  <view class="copy">Review the current watermarked set before paying to unlock details.</view>
-  <view class="refresh-count" wx:if="{{remainingRegenerateCount !== null}}">
-    {{remainingRegenerateCount}} free refreshes left
+<view class="page preview-page">
+  <view class="top-row"><view><view class="section-title">试色预览</view><view class="section-sub">左右滑动查看 3 张带水印效果图。</view></view><view class="round-icon pressable" aria-label="返回首页" bindtap="goBack" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/back.svg" mode="aspectFit"/></view></view>
+  <view wx:if="{{loading}}" class="state-copy">正在加载试色...</view>
+  <view wx:elif="{{errorText && !previewImages.length}}" class="state-copy">{{errorText}}<view class="retry-link pressable" bindtap="loadPreview" hover-class="pressable-hover">重新加载</view></view>
+  <view wx:else class="preview-carousel" bindtouchstart="onPreviewTouchStart" bindtouchmove="onPreviewTouchMove" bindtouchend="onPreviewTouchEnd" bindtouchcancel="onPreviewTouchCancel">
+    <view class="preview-stack"><view wx:for="{{previewCards}}" wx:key="index" class="preview-card {{item.slot}}"><view class="preview-card-motion {{item.active && previewDragging ? 'is-dragging' : ''}}" style="{{item.active ? 'transform: translate3d(' + previewDragOffset + 'px, ' + previewDragY + 'px, 0) rotate(' + previewDragRotation + 'deg);' : ''}}"><view class="preview-card-inner pressable" data-index="{{item.index}}" bindtap="selectPreview" hover-class="pressable-hover"><view class="micro">LIP PREVIEW</view><view class="preview-title">试色 {{item.label}}</view><view class="preview-photo"><image wx:if="{{item.url}}" src="{{item.url}}" mode="aspectFill"/><view wx:else class="image-unavailable">图片暂不可用</view><view class="watermark {{item.active ? 'watermark-active' : ''}}">NewHz</view><view wx:if="{{item.active}}" class="watermark-scanline {{previewMotion}}"></view></view><view class="note">{{item.active ? '解锁后查看品牌色号' : '带水印预览'}}</view></view></view></view></view>
   </view>
-  <view wx:if="{{loading}}" class="preview-state">Loading preview...</view>
-  <view wx:elif="{{errorText}}" class="preview-state">{{errorText}}</view>
-  <view wx:else class="preview-grid">
-    <view class="preview-card" wx:for="{{previewImages}}" wx:key="fileID">
-      <image class="preview-image" src="{{item.url}}" mode="aspectFill"></image>
-      <view class="shade-name">{{item.title}}</view>
-    </view>
-  </view>
-  <button class="primary-button" loading="{{unlocking}}" bindtap="unlockReport">Unlock report</button>
-  <button class="secondary-button" disabled="{{!canRegeneratePreview}}" bindtap="regeneratePreview">Refresh preview</button>
+  <view class="pills preview-pills"><view class="pill">高清无水印</view><view class="pill">品牌色号</view><view class="pill">穿搭建议</view></view>
+  <view class="unlock-note">当前仅展示试色效果，解锁后查看色号与搭配建议。</view>
+  <view class="fixed-actions"><button class="primary-button" bindtap="unlockReport" loading="{{unlocking}}">¥5.99 解锁完整报告</button><button class="ghost-button" disabled="{{!canRegeneratePreview}}" bindtap="regeneratePreview">不太喜欢，换一组</button></view>
+  <view wx:if="{{errorText && previewImages.length}}" class="feedback">{{errorText}}</view>
 </view>

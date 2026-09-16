@@ -20,10 +20,15 @@ function generateTryOnImages(data) {
   return callBusinessFunction("test", "generateTryOnImages", data);
 }
 
+function deleteSelfie(data) {
+  return callBusinessFunction("test", "deleteSelfie", data);
+}
+
 module.exports = {
   createTest,
   uploadSelfie,
   submitPreferences,
   regeneratePreview,
   generateTryOnImages,
+  deleteSelfie,
 };

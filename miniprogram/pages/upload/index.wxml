@@ -1,6 +1,17 @@
-<view class="page">
-  <view class="title">Upload a selfie</view>
-  <view class="copy">Use a clear front-facing photo in natural light with lips visible.</view>
-  <button class="primary-button" bindtap="chooseSelfie" loading="{{uploading}}" disabled="{{uploading}}">Choose photo</button>
+<view class="page setup-page">
+  <view class="top-row"><view><view class="section-title">偏好设置</view><view class="section-sub">上传自拍，并告诉我你想要的试色感觉。</view></view><view class="round-icon pressable" aria-label="从相册选择" bindtap="chooseAlbum" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/gallery.svg" mode="aspectFit"/></view></view>
+
+  <view class="setup-card">
+    <view class="upload-preview"><view class="micro">SELFIE TRY-ON</view><image wx:if="{{photoPath}}" class="upload-photo" src="{{photoPath}}" mode="aspectFill"></image><view wx:else class="upload-photo"><text class="camera-mark">●</text></view></view>
+    <view class="setup-title">选择一张清晰自拍</view><view class="setup-copy">脸部完整、嘴唇无遮挡时，试色效果会更自然。</view>
+    <view class="upload-actions"><view class="upload-action primary pressable" bindtap="chooseCamera" hover-class="pressable-hover"><image class="action-icon" src="../../images/ui/camera.svg" mode="aspectFit"/><text>拍一张</text></view><view class="upload-action pressable" bindtap="chooseAlbum" hover-class="pressable-hover"><image class="action-icon" src="../../images/ui/gallery.svg" mode="aspectFit"/><text>从相册选择</text></view></view>
+  </view>
+
+  <view class="preference-panel">
+    <view class="pref-row"><view class="pref-title">肤色</view><view class="pref-options"><button wx:for="{{options.skinTone}}" wx:key="value" class="pref-chip {{skinTone === item.value ? 'active' : ''}}" data-field="skinTone" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button></view></view>
+    <view class="pref-row"><view class="pref-title">预算</view><view class="pref-options"><button wx:for="{{options.budget}}" wx:key="value" class="pref-chip {{budget === item.value ? 'active' : ''}}" data-field="budget" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button></view></view>
+    <view class="pref-row"><view class="pref-title">脸型</view><view class="pref-options"><button wx:for="{{options.faceShape}}" wx:key="value" class="pref-chip {{faceShape === item.value ? 'active' : ''}}" data-field="faceShape" data-value="{{item.value}}" bindtap="selectOption">{{item.label}}</button></view></view>
+    <button class="primary-button generate-button" bindtap="startGenerating" loading="{{submitting}}" disabled="{{submitting}}">生成我的试色</button>
+  </view>
   <view wx:if="{{feedback}}" class="feedback">{{feedback}}</view>
 </view>

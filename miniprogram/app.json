@@ -8,6 +8,8 @@
     "pages/payment-result/index",
     "pages/report/index",
     "pages/my-reports/index",
+    "pages/report-history/index",
+    "pages/my/index",
     "pages/share/index",
     "pages/privacy/index",
     "pages/refund-help/index"
@@ -16,7 +18,7 @@
     "backgroundColor": "#FFF8FA",
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#FFF8FA",
-    "navigationBarTitleText": "NewHz Lip Try-on",
+    "navigationBarTitleText": "NewHz 试色",
     "navigationBarTextStyle": "black"
   },
   "sitemapLocation": "sitemap.json",

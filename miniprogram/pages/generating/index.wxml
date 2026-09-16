@@ -1,4 +1,10 @@
-<view class="page center">
-  <view class="title">Generating preview</view>
-  <view class="copy">{{statusText}}</view>
+<view class="page flow-page generating-page">
+  <view class="eyebrow">NewHz / GENERATING</view>
+  <view class="title">正在整理你的专属试色。</view>
+  <view class="copy">根据你的自拍和偏好，生成三款带水印预览。</view>
+  <view class="progress-stage">
+    <view class="progress-line"><view class="progress-fill" style="width: {{phase === 0 ? '34%' : phase === 1 ? '68%' : '100%'}};"></view></view>
+    <view class="progress-steps"><view class="progress-step {{phase >= 0 ? 'step-active' : ''}}"><text>01</text><text>匹配色号</text></view><view class="progress-step {{phase >= 1 ? 'step-active' : ''}}"><text>02</text><text>生成试色</text></view><view class="progress-step {{phase >= 2 ? 'step-active' : ''}}"><text>03</text><text>整理结果</text></view></view>
+  </view>
+  <view class="status-panel"><view class="status-dot"></view><view>{{statusText}}</view></view>
 </view>

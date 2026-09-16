@@ -21,6 +21,10 @@ function buildShareStats(shareEntry) {
   };
 }
 
+function buildShareCardCloudPath(openid, reportId, recommendationIndex) {
+  return `share_cards/${openid}/${reportId}/${recommendationIndex}.jpg`;
+}
+
 async function getShareEntryRecord(shareId, runtime) {
   const shareResult = await runtime.db.collection("share_entries").doc(shareId).get();
   const shareEntry = shareResult.data || {};
@@ -95,16 +99,17 @@ async function recordShareVisit(shareEntry, visitorOpenid, runtime) {
 }
 
 function buildShareEntry(params) {
-  const { openid, reportId, recommendationIndex, report, now, sharePath } = params;
+  const { openid, reportId, recommendationIndex, report, now, sharePath, cardPreviewFileId } = params;
 
   return {
     sharerOpenid: openid,
     reportId,
     recommendationIndex,
     cardPreviewFileId:
-      Array.isArray(report.shareCardImages) && report.shareCardImages[recommendationIndex]
+      cardPreviewFileId ||
+      (Array.isArray(report.shareCardImages) && report.shareCardImages[recommendationIndex]
         ? report.shareCardImages[recommendationIndex]
-        : "",
+        : ""),
     sharePath,
     visitCount: 0,
     uniqueVisitorCount: 0,
@@ -139,6 +144,7 @@ module.exports = {
   getShareEntryRecord,
   getShareRecommendationPayload,
   recordShareVisit,
+  buildShareCardCloudPath,
   buildShareEntry,
   createShareEntryRecord,
 };

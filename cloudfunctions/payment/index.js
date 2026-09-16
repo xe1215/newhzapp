@@ -1,4 +1,4 @@
-const cloud = require("wx-server-sdk");
+const { cloud, createRuntime, ok, fail, unsupported } = require("./business-runtime");
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
@@ -7,41 +7,30 @@ cloud.init({
 const ORDER_AMOUNT_CENTS = 599;
 const ORDER_CURRENCY = "CNY";
 
-function ok(data) {
-  return {
-    code: 0,
-    message: "ok",
-    data: data || null,
-  };
-}
-
-function fail(code, message, data) {
-  return {
-    code: code || -1,
-    message: message || "error",
-    data: data || null,
-  };
-}
-
-function unsupported(action) {
-  return fail("INVALID_ACTION", `Unsupported action: ${action || "unknown"}`);
-}
-
 function getRuntime(deps) {
-  return {
-    db: deps && deps.db ? deps.db : cloud.database(),
-    wxContext: deps && deps.wxContext ? deps.wxContext : cloud.getWXContext(),
-    now: deps && deps.now ? deps.now : () => new Date(),
+  return createRuntime(deps, {
     env: deps && deps.env ? deps.env : process.env,
     id:
       deps && deps.id
         ? deps.id
         : () => `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  };
+  });
 }
 
 function buildOutTradeNo(orderId) {
   return `hz-${String(orderId)}`;
+}
+
+function canRequestRefund(order) {
+  if (!order || order.status !== "paid") {
+    return false;
+  }
+
+  if (order.canViewReport) {
+    return false;
+  }
+
+  return order.refundStatus === "pending" || order.refundStatus === "requested";
 }
 
 async function createReportOrder(event, deps) {
@@ -68,7 +57,13 @@ async function createReportOrder(event, deps) {
   const reportResult = await runtime.db.collection("reports").doc(reportId).get();
   const reportRecord = reportResult.data || {};
 
-  if (!reportRecord._id || reportRecord.openid !== openid || reportRecord.testId !== data.testId) {
+  if (
+    !reportRecord._id ||
+    reportRecord.openid !== openid ||
+    reportRecord.testId !== data.testId ||
+    reportRecord.deletedAt ||
+    reportRecord.status === "expired"
+  ) {
     return fail("RESOURCE_NOT_FOUND", "Active report does not belong to current user");
   }
 
@@ -165,6 +160,8 @@ async function confirmPayment(event, deps) {
     refundEligibleAt: refundStatus === "pending" ? now : "",
     refundReason: refundStatus === "pending" ? "REPORT_NOT_VIEWABLE" : "",
     canViewReport: reportCanView,
+    selfieRetentionConsent: data.retainSelfie !== false,
+    selfieRetentionConsentAt: data.retainSelfie !== false ? now : "",
     wechatPayment: {
       ...(order.wechatPayment || {}),
       transactionId: data.transactionId || "",
@@ -176,12 +173,22 @@ async function confirmPayment(event, deps) {
   });
 
   if (reportCanView) {
-    await runtime.db.collection("reports").doc(order.reportId).update({
-      data: {
-        unlockedAt: now,
-        updatedAt: now,
-      },
-    });
+    await Promise.all([
+      runtime.db.collection("reports").doc(order.reportId).update({
+        data: {
+          unlockedAt: now,
+          updatedAt: now,
+        },
+      }),
+      runtime.db.collection("try_on_tests").doc(order.testId).update({
+        data: {
+          selfieRetention: "paid_report",
+          selfieRetainedAt: now,
+          expiresAt: "",
+          updatedAt: now,
+        },
+      }),
+    ]);
   }
 
   await runtime.db.collection("events").add({
@@ -209,6 +216,62 @@ async function confirmPayment(event, deps) {
   });
 }
 
+async function requestRefund(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  if (!data.orderId || !data.refundReason) {
+    return fail("INVALID_PAYLOAD", "orderId and refundReason are required");
+  }
+
+  const orderResult = await runtime.db.collection("orders").doc(data.orderId).get();
+  const order = orderResult.data || {};
+
+  if (!order._id || order.openid !== openid) {
+    return fail("RESOURCE_NOT_FOUND", "Order does not belong to current user");
+  }
+
+  if (!canRequestRefund(order)) {
+    return fail(
+      "REFUND_NOT_ALLOWED",
+      "Refund is only available when a paid report cannot be viewed yet"
+    );
+  }
+
+  const now = runtime.now().toISOString();
+  await runtime.db.collection("orders").doc(order._id).update({
+    data: {
+      refundStatus: "requested",
+      refundReason: data.refundReason,
+      refundRequestedAt: now,
+      updatedAt: now,
+    },
+  });
+
+  await runtime.db.collection("events").add({
+    data: {
+      type: "refund_request",
+      openid,
+      orderId: order._id,
+      reportId: order.reportId,
+      testId: order.testId,
+      refundReason: data.refundReason,
+      createdAt: now,
+    },
+  });
+
+  return ok({
+    orderId: order._id,
+    refundStatus: "requested",
+    refundReason: data.refundReason,
+  });
+}
+
 async function main(event, context, deps) {
   const action = event && event.action;
 
@@ -220,9 +283,14 @@ async function main(event, context, deps) {
     return await confirmPayment(event, deps);
   }
 
+  if (action === "requestRefund") {
+    return await requestRefund(event, deps);
+  }
+
   return unsupported(action);
 }
 
 exports.main = main;
 exports.createReportOrder = createReportOrder;
 exports.confirmPayment = confirmPayment;
+exports.requestRefund = requestRefund;

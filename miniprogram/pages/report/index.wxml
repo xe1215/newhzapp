@@ -1,22 +1,44 @@
-<view class="page">
-  <view class="title">Full report</view>
-  <view class="copy">Unlocked recommendations will show shades, reasons, cautions, substitutes, and search keywords.</view>
-  <view wx:if="{{loading}}" class="copy">Loading report...</view>
-  <view wx:elif="{{errorText}}" class="copy">{{errorText}}</view>
-  <view wx:else>
-    <view class="preview-grid">
-      <view class="preview-card" wx:for="{{paidImages}}" wx:key="fileID">
-        <image class="preview-image" src="{{item.url}}" mode="aspectFill"></image>
-        <view class="shade-name">{{item.title}}</view>
+<view class="page report-detail-page {{sheetState}} {{sheetDragging ? 'sheet-dragging' : ''}} {{isLocked ? 'locked-report' : ''}}">
+  <view wx:if="{{loading}}" class="state-copy">正在加载报告...</view>
+  <view wx:elif="{{errorText && !recommendations.length}}" class="state-copy">{{errorText}}</view>
+  <block wx:else>
+    <view wx:if="{{isLocked}}" class="locked-viewport">
+      <view class="locked-topbar">
+        <view class="photo-icon pressable" bindtap="goBack" aria-label="返回试色预览" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/back.svg" mode="aspectFit"/></view>
+        <view class="photo-brand">NewHz</view>
+        <view class="topbar-spacer"></view>
+      </view>
+      <view class="locked-tabs" aria-label="切换试色预览"><view wx:for="{{recommendations}}" wx:key="rank" class="locked-tab {{activeIndex === index ? 'active' : ''}} pressable" data-index="{{index}}" bindtap="selectRecommendation" hover-class="pressable-hover"><text>{{tabLabels[index]}}</text></view></view>
+      <view class="locked-preview-image"><image wx:if="{{previewImages[activeIndex]}}" src="{{previewImages[activeIndex].url}}" mode="aspectFill"/><view wx:else class="comparison-placeholder">带水印试色图暂不可用</view><view class="locked-watermark upper">NewHz</view><view class="locked-watermark">NewHz</view><view class="locked-watermark mid">NewHz</view><view class="locked-watermark secondary">NewHz</view><view class="locked-watermark tertiary">NewHz</view></view>
+      <view class="locked-sheet {{lockedSheetState}} {{lockedSheetDragging ? 'is-dragging' : ''}}" style="transform: translateY({{lockedSheetOffset}}px);">
+        <view class="locked-sheet-handle" catchtouchstart="onLockedSheetTouchStart" catchtouchmove="onLockedSheetTouchMove" catchtouchend="onLockedSheetTouchEnd" catchtouchcancel="onLockedSheetTouchCancel"><view class="sheet-grabber"></view><view class="sheet-eyebrow">LOCKED REPORT</view><view class="sheet-title">试色 {{tabLabels[activeIndex]}}</view>
+        <view class="sheet-copy">完整报告将展示品牌、色号与适配建议。</view></view>
+        <view class="locked-details"><view>品牌与色号</view><view>颜色特点与适合场景</view><view>穿搭建议与推荐理由</view></view>
+        <button class="primary-button report-action" bindtap="unlockReport" loading="{{unlocking}}">¥5.99 解锁完整报告</button>
       </view>
     </view>
-    <view class="report-card" wx:for="{{recommendations}}" wx:key="rank">
-      <view class="shade-name">{{item.shadeName}} {{item.shadeCode}}</view>
-      <view class="copy">{{item.brand}} · {{item.colorHex}}</view>
-      <view class="copy">{{item.recommendationReason}}</view>
-      <view class="copy" wx:if="{{item.cautionNote}}">Caution: {{item.cautionNote}}</view>
-      <view class="copy" wx:if="{{item.substitute}}">Substitute: {{item.substitute}}</view>
+    <view wx:else class="report-viewport">
+      <view class="comparison-stage" style="{{sheetState === 'expanded' ? 'height:calc(248rpx + ' + sheetDrag + 'px);' : ''}}" bindtouchstart="onSliderTouchStart" bindtouchmove="onSliderTouchMove">
+        <view class="photo-topbar"><view class="photo-brand">NewHz</view><view class="topbar-spacer"></view></view>
+        <view class="photo-tabs" aria-label="切换口红报告"><view wx:for="{{recommendations}}" wx:key="rank" class="photo-tab {{activeIndex === index ? 'active' : ''}}" data-index="{{index}}" bindtap="selectRecommendation" hover-class="pressable-hover"><view class="tab-dot" style="background-color: {{item.colorHex}};"></view><text>{{tabLabels[index]}}</text></view></view>
+        <block wx:if="{{!originalDeletedByUser}}"><view class="comparison-image original"><image wx:if="{{originalImage}}" src="{{originalImage}}" mode="aspectFill"/><view wx:else class="comparison-placeholder">原图暂不可用</view><text>自拍</text></view><view class="comparison-image result" style="{{resultClipStyle}}"><image wx:if="{{paidImages[activeIndex]}}" src="{{paidImages[activeIndex].url}}" mode="aspectFill"/><view wx:else class="comparison-placeholder">高清试色暂不可用</view><text>高清试色</text></view><view class="comparison-divider" style="left: {{sliderPercent}}%;"><view class="drag-handle"></view></view><view class="comparison-hint">左右拖动，查看 Before / After</view></block>
+        <view wx:else class="comparison-image result"><image wx:if="{{paidImages[activeIndex]}}" src="{{paidImages[activeIndex].url}}" mode="aspectFill"/><view wx:else class="comparison-placeholder">高清试色暂不可用</view><text>高清试色</text></view>
+      </view>
+      <scroll-view class="report-sheet" scroll-y="{{sheetState === 'expanded'}}" style="transform: translateY({{sheetDrag}}px);">
+        <view class="sheet-handle" catchtouchstart="onSheetTouchStart" catchtouchmove="onSheetTouchMove" catchtouchend="onSheetTouchEnd"><view class="sheet-grabber"></view><view class="sheet-peek-summary"><view class="sheet-eyebrow">RECOMMENDATION 0{{activeIndex + 1}}</view><view class="sheet-title">{{activeRecommendation.shadeName}}</view><view class="sheet-copy">上滑查看品牌、色号与专属搭配建议</view></view></view>
+        <view class="expanded-report-content">
+          <view class="product-hero {{activeRecommendation.productImageUrl ? '' : 'product-hero-empty'}}"><image wx:if="{{activeRecommendation.productImageUrl}}" src="{{activeRecommendation.productImageUrl}}" mode="aspectFit"/><view wx:else class="product-image-empty">产品展示图待补充</view></view><view class="product-pagination" aria-label="产品图片位置"><view class="product-dot"></view><view class="product-dot active"></view><view class="product-dot"></view></view>
+          <view class="product-title-row"><view><view class="sheet-eyebrow">{{activeRecommendation.brand || 'LIP REPORT'}}</view><view class="product-name">{{activeRecommendation.productName || activeRecommendation.shadeName}}</view></view><view class="product-color-swatch" style="background-color: {{activeRecommendation.colorHex}};" aria-label="{{activeRecommendation.shadeName}}"></view></view>
+          <view class="product-subtitle">{{activeRecommendation.shadeCode}} · {{activeRecommendation.texture}}</view>
+          <view class="detail-tabs" aria-label="报告内容"><view class="detail-tab {{detailSection === 'color' ? 'active' : ''}} pressable" data-section="color" bindtap="selectDetailSection" hover-class="pressable-hover">色号选择</view><view class="detail-tab {{detailSection === 'scene' ? 'active' : ''}} pressable" data-section="scene" bindtap="selectDetailSection" hover-class="pressable-hover">唇妆画法</view><view class="detail-tab {{detailSection === 'outfit' ? 'active' : ''}} pressable" data-section="outfit" bindtap="selectDetailSection" hover-class="pressable-hover">质地搭配</view></view>
+          <view wx:if="{{detailSection === 'color'}}" class="product-copy"><view class="copy-color-line"><view class="product-color-swatch copy-color-swatch" style="background-color: {{activeRecommendation.colorHex}};" aria-label="{{activeRecommendation.shadeCode}}"></view><view><view class="copy-heading">色号选择</view><view class="copy-english">{{activeRecommendation.shadeCode}}</view></view></view><view class="copy-body">{{presentation.sharedContent.shadeSelection || activeRecommendation.recommendationReason}}</view></view>
+          <view wx:elif="{{detailSection === 'scene'}}" class="product-copy"><view class="copy-heading">唇妆画法</view><view class="copy-body">{{presentation.sharedContent.lipMakeupMethod || activeRecommendation.sceneText}}</view><view class="copy-note">根据唇形调整边缘晕染范围，保持整体妆感自然。</view></view>
+          <view wx:else class="product-copy"><view class="copy-heading">质地搭配</view><view class="copy-body">{{presentation.sharedContent.textureMatching || activeRecommendation.outfitText}}</view><view class="copy-note">让唇妆质地与底妆和整体妆感保持协调。</view></view>
+<view class="product-actions"><view wx:if="{{!originalDeletedByUser}}" class="delete-original-icon pressable" bindtap="deleteOriginalSelfie" aria-label="删除原图" hover-class="pressable-hover"><text>×</text></view></view><view class="collapse-hint">下滑收起详情后，可重新拖动对比</view>
+        </view>
+      </scroll-view>
     </view>
-  </view>
-  <button class="secondary-button" bindtap="shareCard">Share one card</button>
+  </block>
+  <view wx:if="{{errorText && recommendations.length}}" class="feedback report-feedback">{{errorText}}</view>
+  <canvas type="2d" id="share-card-canvas" style="position: fixed; left: -9999px; top: -9999px; width: 300px; height: 400px;"></canvas>
 </view>

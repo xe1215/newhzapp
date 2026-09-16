@@ -1,16 +1,15 @@
-<view class="page">
-  <view class="title">My reports</view>
-  <view class="copy">Paid reports will appear here for review.</view>
-  <view wx:if="{{loading}}" class="copy">Loading reports...</view>
-  <view wx:elif="{{errorText}}" class="copy">{{errorText}}</view>
-  <view wx:elif="{{!reports.length}}" class="copy">No paid reports yet.</view>
-  <view wx:else>
-    <view class="report-card" wx:for="{{reports}}" wx:key="reportId">
-      <view class="shade-name">{{item.shadeName}} {{item.shadeCode}}</view>
-      <view class="copy">{{item.brand}}</view>
-      <button class="primary-button" data-report-id="{{item.reportId}}" data-test-id="{{item.testId}}" bindtap="viewReport">View report</button>
-      <button class="secondary-button" data-report-id="{{item.reportId}}" bindtap="shareReport">Share one card</button>
-      <button class="secondary-button" data-report-id="{{item.reportId}}" bindtap="hideReport">Hide report</button>
-    </view>
+<view class="page page-dark reports-page">
+  <view class="top-row"><view class="brand"><view class="brand-title">NewHz</view><view class="brand-sub">最新试色报告</view><view class="brand-copy">当前只展示最新解锁报告的三支专属唇色。</view></view><view class="icon-buttons"><view class="round-icon pressable" aria-label="返回首页" bindtap="openHome" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/back.svg" mode="aspectFit"/></view><view class="round-icon pressable" aria-label="打开我的" bindtap="openMy" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/user.svg" mode="aspectFit"/></view></view></view>
+  <view class="pills"><view class="pill">{{selectedReport ? '已解锁' : '暂无报告'}}</view><view class="pill">A / B / C 三支推荐</view></view>
+  <view wx:if="{{loading}}" class="state-copy">正在加载最新报告...</view>
+  <view wx:elif="{{errorText}}" class="state-copy">{{errorText}}</view>
+  <view wx:elif="{{!selectedReport}}" class="empty-state"><view class="brand-sub">还没有已解锁报告</view><view class="brand-copy">先生成一组试色，找到最适合你的颜色。</view><button class="primary-button" bindtap="openHome">去试色</button></view>
+  <view wx:else class="report-stack report-card-flow {{deckMotion}}" bindtouchstart="onDeckTouchStart" bindtouchend="onDeckTouchEnd">
+    <view class="report-flow-row"><block wx:for="{{displayReports}}" wx:key="recommendationIndex"><view class="report-cover {{item.stackSlot}} pressable" data-recommendation-index="{{item.recommendationIndex}}" bindtap="viewReport" hover-class="pressable-hover">
+      <image wx:if="{{item.coverImage}}" class="report-photo" src="{{item.coverImage}}" mode="aspectFill"/><view wx:else class="report-image-unavailable">报告封面暂不可用</view><view class="report-shade"></view>
+      <view class="report-inside"><view class="micro">LIP REPORT · {{item.label}}</view><view class="report-name">{{item.shadeName}}</view></view>
+      <view class="style-tags"><text>{{item.brand}}</text><text>{{item.primaryTag}}</text></view><view wx:if="{{item.active}}" class="chipline">点击查看完整 {{item.label}} 号报告</view>
+    </view></block></view>
   </view>
+  <view class="bottom-nav"><view class="nav-item pressable" bindtap="openHome" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/home.svg" mode="aspectFit"/><text>首页</text></view><view class="nav-item active pressable" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/report.svg" mode="aspectFit"/><text>报告</text></view><view class="nav-item pressable" bindtap="openMy" hover-class="pressable-hover"><image class="nav-icon" src="../../images/ui/user.svg" mode="aspectFit"/><text>我的</text></view></view>
 </view>

@@ -18,6 +18,37 @@ cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV,
 });
 
+async function hydrateProductSnapshots(runtime, snapshot) {
+  const recommendations = Array.isArray(snapshot.recommendations)
+    ? snapshot.recommendations
+    : [];
+  const missingIds = recommendations
+    .filter((item) => item && !item.productImage && item.lipstickId)
+    .map((item) => item.lipstickId);
+
+  if (!missingIds.length) {
+    return snapshot;
+  }
+
+  const records = await Promise.all(missingIds.map((id) =>
+    runtime.db.collection("lipsticks").doc(id).get().then((result) => result.data || {}).catch(() => ({}))
+  ));
+  const byId = new Map(records.map((item) => [String(item._id), item]));
+
+  return Object.assign({}, snapshot, {
+    recommendations: recommendations.map((item) => {
+      const product = byId.get(String(item.lipstickId));
+      if (!product || item.productImage) {
+        return item;
+      }
+      return Object.assign({}, item, {
+        productName: item.productName || product.productName || product.shadeName || "",
+        productImage: product.productImage || "",
+      });
+    }),
+  });
+}
+
 async function getPreview(event, deps) {
   const data = getEventData(event);
   const runtime = getRuntime(deps);
@@ -76,6 +107,8 @@ async function getReport(event, deps) {
   const report = ownedReportResult.data.report;
 
   const paidImages = Array.isArray(report.paidImages) ? report.paidImages : [];
+  const testResult = await runtime.db.collection("try_on_tests").doc(data.testId).get();
+  const testRecord = testResult.data || {};
   const locked = !report.unlockedAt;
 
   if (locked) {
@@ -99,7 +132,9 @@ async function getReport(event, deps) {
     status: report.status || "active",
     locked: false,
     paidImages,
-    snapshot: report.snapshot || {},
+    selfieFileId: testRecord.openid === openid ? testRecord.selfieFileId || "" : "",
+    originalDeletedAt: report.originalDeletedAt || "",
+    snapshot: await hydrateProductSnapshots(runtime, report.snapshot || {}),
     unlockedAt: report.unlockedAt,
   });
 }

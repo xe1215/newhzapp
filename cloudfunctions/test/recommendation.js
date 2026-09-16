@@ -11,7 +11,7 @@ function includesValue(values, expected) {
 }
 
 function getBudget(item) {
-  return item.budgetRange || item.priceRange || "";
+  return item.budgetRange || item.priceRange || item.budget || "";
 }
 
 function scoreLipstick(item, preferences) {
@@ -37,12 +37,14 @@ function toRecommendationSnapshot(item, rank, preferences) {
     rank,
     lipstickId: item._id,
     brand: item.brand || "",
-    shadeName: item.shadeName || "",
+    productName: item.productName || item.shadeName || "",
+    shadeName: item.shadeName || item.productName || "",
     shadeCode: item.shadeCode || "",
     colorHex: item.colorHex || "",
-    priceRange: item.priceRange || item.budgetRange || "",
+    productImage: item.productImage || item.productImageUrl || item.productImageFileId || item.lipstickImage || "",
+    priceRange: item.priceRange || item.budgetRange || item.budget || "",
     skinToneTags: item.skinToneTags || [],
-    budgetRange: item.budgetRange || "",
+    budgetRange: item.budgetRange || item.budget || "",
     sceneTags: item.sceneTags || [],
     styleTags: item.styleTags || [],
     manualBoost: Number(item.manualBoost || 0),
@@ -53,6 +55,7 @@ function toRecommendationSnapshot(item, rank, preferences) {
     matchedPreferences: {
       skinTone: preferences.skinTone,
       budget: preferences.budget,
+      faceShape: preferences.faceShape || preferences.faceType || "",
       scene: preferences.scene,
       style: preferences.style,
     },
@@ -138,17 +141,22 @@ function validatePreferences(data) {
     }
   }
 
-  return {
+  const normalized = {
     skinTone: preferences.skinTone,
     budget: preferences.budget,
     scene: preferences.scene,
     style: preferences.style,
   };
+
+  const faceShape = preferences.faceShape || preferences.faceType || "";
+  if (faceShape) normalized.faceShape = faceShape;
+  return normalized;
 }
 
 module.exports = {
   rankLipsticks,
   rankLipsticksExcluding,
+  toRecommendationSnapshot,
   collectUsedLipstickIds,
   validatePreferences,
 };

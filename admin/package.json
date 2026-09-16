@@ -1,0 +1,28 @@
+{
+  "name": "newhzapp-admin",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve:dist": "python serve_dist.py",
+    "serve:ensure": "powershell -ExecutionPolicy Bypass -File ensure_admin_service.ps1",
+    "serve:guard": "powershell -ExecutionPolicy Bypass -File admin_guard_loop.ps1",
+    "serve:autostart": "powershell -ExecutionPolicy Bypass -File ensure_admin_guard.ps1",
+    "verify": "npm run build"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.3.2",
+    "@cloudbase/js-sdk": "^3.5.4",
+    "antd": "^6.6.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.2",
+    "vite": "^5.4.10"
+  }
+}

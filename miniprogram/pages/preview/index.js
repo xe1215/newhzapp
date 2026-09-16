@@ -4,6 +4,17 @@ const testService = require("../../services/test");
 const { getQueryValue, unwrapCloudCall } = require("../../utils/business");
 const { resolveCloudFileList } = require("../../utils/media");
 
+function buildPreviewCards(images, activeIndex) {
+  const slots = ["fan-front", "fan-mid", "fan-back"];
+  return images.slice(0, 3).map((image, index) => ({
+    index,
+    url: image && image.url ? image.url : "",
+    label: ["A", "B", "C"][index] || String(index + 1),
+    slot: slots[(index - activeIndex + 3) % 3],
+    active: index === activeIndex,
+  }));
+}
+
 Page({
   data: {
     testId: "",
@@ -14,6 +25,13 @@ Page({
     remainingRegenerateCount: null,
     canRegeneratePreview: true,
     unlocking: false,
+    currentIndex: 0,
+    previewCards: [],
+    previewDragOffset: 0,
+    previewDragY: 0,
+    previewDragRotation: 0,
+    previewDragging: false,
+    previewMotion: "",
   },
 
   onLoad(query) {
@@ -24,6 +42,11 @@ Page({
       testId,
       reportId,
     });
+
+    if (testId && reportId) {
+      wx.setStorageSync("newhzLatestPreview", { testId, reportId });
+    }
+
     this.loadPreview();
   },
 
@@ -62,9 +85,12 @@ Page({
         return this.resolvePreviewImages(data);
       })
       .then((previewImages) => {
+        const currentIndex = Math.min(this.data.currentIndex, Math.max(0, previewImages.length - 1));
         this.setData({
           loading: false,
           previewImages,
+          currentIndex,
+          previewCards: buildPreviewCards(previewImages, currentIndex),
           errorText: previewImages.length ? "" : "No preview images are ready yet.",
         });
       })
@@ -78,11 +104,7 @@ Page({
   },
 
   resolvePreviewImages(report) {
-    return resolveCloudFileList(report.previewImages, "Look", (fileList) =>
-      wx.cloud.getTempFileURL({
-        fileList,
-      })
-    );
+    return resolveCloudFileList(report.previewImages, "Look");
   },
 
   unlockReport() {
@@ -182,9 +204,12 @@ Page({
           return;
         }
 
+        const currentIndex = Math.min(this.data.currentIndex, Math.max(0, previewImages.length - 1));
         this.setData({
           loading: false,
           previewImages,
+          currentIndex,
+          previewCards: buildPreviewCards(previewImages, currentIndex),
           errorText: previewImages.length ? "" : "No preview images are ready yet.",
         });
       })
@@ -192,6 +217,138 @@ Page({
         this.setData({
           loading: false,
           errorText: error.message || "Preview refresh failed.",
+        });
+      });
+  },
+
+  goBack() {
+    wx.navigateBack({ delta: 1 });
+  },
+
+  selectPreview(e) {
+    const index = Number(e.currentTarget.dataset.index || 0);
+    if (!this.data.previewImages[index]) return;
+
+    // A rear card first comes to the front. A second tap on the visible card
+    // opens that recommendation's deliberately locked report detail.
+    if (index !== this.data.currentIndex) {
+      this.setData({
+        currentIndex: index,
+        previewCards: buildPreviewCards(this.data.previewImages, index),
+      });
+      return;
+    }
+
+    wx.navigateTo({
+      url: `/pages/report/index?testId=${this.data.testId}&reportId=${this.data.reportId}` +
+        `&recommendationIndex=${index}&locked=1`,
+    });
+  },
+
+  resetPreviewGesture() {
+    this.previewTouchStart = null;
+    this.setData({
+      previewDragging: false,
+      previewDragOffset: 0,
+      previewDragY: 0,
+      previewDragRotation: 0,
+    });
+  },
+
+  onPreviewTouchStart(e) {
+    if (this.data.previewDragging || this.data.previewDragOffset || this.data.previewDragY || this.data.previewDragRotation) {
+      this.resetPreviewGesture();
+    }
+    const point = e.touches && e.touches[0];
+    this.previewTouchStart = point ? {
+      x: typeof point.clientX === "number" ? point.clientX : point.pageX,
+      y: typeof point.clientY === "number" ? point.clientY : point.pageY,
+      timestamp: Date.now(),
+    } : null;
+  },
+
+  onPreviewTouchMove(e) {
+    const point = e.touches && e.touches[0];
+    if (!point || !this.previewTouchStart) return;
+    const x = typeof point.clientX === "number" ? point.clientX : point.pageX;
+    const y = typeof point.clientY === "number" ? point.clientY : point.pageY;
+    const dx = x - this.previewTouchStart.x;
+    const dy = y - this.previewTouchStart.y;
+    if (Math.abs(dx) <= Math.abs(dy) * 1.15) return;
+
+    this.setData({
+      previewDragging: true,
+      previewDragOffset: Math.max(-88, Math.min(88, Math.round(dx * 0.42))),
+      previewDragY: Math.round(Math.abs(Math.max(-88, Math.min(88, dx * 0.42))) * 0.2),
+      previewDragRotation: Math.max(-10, Math.min(10, Math.round(dx * 0.045))),
+    });
+  },
+
+  onPreviewTouchEnd(e) {
+    const point = e.changedTouches && e.changedTouches[0];
+    if (!point || !this.previewTouchStart) {
+      this.resetPreviewGesture();
+      return;
+    }
+    const gesture = this.previewTouchStart;
+    const x = typeof point.clientX === "number" ? point.clientX : point.pageX;
+    const y = typeof point.clientY === "number" ? point.clientY : point.pageY;
+    const dx = x - gesture.x;
+    const dy = y - gesture.y;
+    this.previewTouchStart = null;
+    if (Math.abs(dx) <= Math.abs(dy) * 1.15 || !this.data.previewImages.length) {
+      this.resetPreviewGesture();
+      return;
+    }
+
+    const count = this.data.previewImages.length;
+    const duration = Math.max(1, Date.now() - gesture.timestamp);
+    const velocity = Math.abs(dx) / duration;
+    const distanceSteps = Math.round(Math.abs(dx) / 180);
+    const momentumSteps = velocity >= 0.65 ? 2 : 1;
+    const steps = Math.min(2, velocity >= 0.65 ? momentumSteps : distanceSteps);
+    if (!steps) {
+      this.resetPreviewGesture();
+      return;
+    }
+    const nextIndex = (this.data.currentIndex + (dx < 0 ? steps : -steps) + count * 2) % count;
+    this.setData({
+      currentIndex: nextIndex,
+      previewCards: buildPreviewCards(this.data.previewImages, nextIndex),
+      previewDragging: false,
+      previewDragOffset: 0,
+      previewDragY: 0,
+      previewDragRotation: 0,
+      previewMotion: "watermark-scan",
+    });
+    clearTimeout(this.previewMotionTimer);
+    this.previewMotionTimer = setTimeout(() => this.setData({ previewMotion: "" }), 520);
+  },
+
+  onPreviewTouchCancel() {
+    this.resetPreviewGesture();
+  },
+
+  deleteSelfie() {
+    if (!this.data.testId) {
+      this.setData({
+        errorText: "Missing test information. Please generate again.",
+      });
+      return;
+    }
+
+    testService
+      .deleteSelfie({
+        testId: this.data.testId,
+      })
+      .then(() => {
+        this.setData({
+          errorText: "Original selfie deleted. Generated reports stay available.",
+        });
+      })
+      .catch((error) => {
+        this.setData({
+          errorText: error.message || "Unable to delete the original selfie.",
         });
       });
   },

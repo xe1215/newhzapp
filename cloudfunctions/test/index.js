@@ -9,8 +9,10 @@ const {
 } = require("./test-core");
 const {
   rankLipsticks,
+  toRecommendationSnapshot,
   validatePreferences,
 } = require("./recommendation");
+const { loadRecommendationRule, loadSharedContent } = require("./recommendation-rules");
 const {
   finishRegeneratedPreview,
 } = require("./generation-flow");
@@ -25,13 +27,15 @@ const {
   handleGenerateTryOnPending,
   handleGenerateTryOnSuccess,
   handleGenerateTryOnFailure,
+} = require("./generate-tryon-handlers");
+const {
   handlePreviewLimitReached,
   handlePreviewRecommendationShortage,
   handlePreviewContinuationPending,
   handlePreviewNewPending,
   handlePreviewProviderFailure,
   handlePreviewProviderSuccess,
-} = require("./generation-handlers");
+} = require("./preview-regenerate-handlers");
 const {
   validateActivePreviewState,
   loadPendingRegenerateReport,
@@ -397,11 +401,20 @@ async function submitPreferences(event, deps) {
     .collection("lipsticks")
     .where({ status: "active" })
     .get();
-  const recommendations = rankLipsticks(
-    lipsticksResult.data || [],
-    preferences,
-    RECOMMENDATION_LIMIT
-  );
+  const lipstickRecords = lipsticksResult.data || [];
+  const rule = await loadRecommendationRule(runtime, preferences);
+  const configuredIds = rule && Array.isArray(rule.lipstickIds) ? rule.lipstickIds.map(String) : [];
+  const configuredRecommendations = configuredIds.length === RECOMMENDATION_LIMIT
+    ? configuredIds
+        .map((id, index) => {
+          const item = lipstickRecords.find((record) => String(record._id) === id && record.status === "active");
+          return item ? toRecommendationSnapshot(item, index + 1, preferences) : null;
+        })
+        .filter(Boolean)
+    : [];
+  const recommendations = configuredRecommendations.length === RECOMMENDATION_LIMIT
+    ? configuredRecommendations
+    : rankLipsticks(lipstickRecords, preferences, RECOMMENDATION_LIMIT);
 
   if (recommendations.length < RECOMMENDATION_LIMIT) {
     return fail("RECOMMENDATION_NOT_ENOUGH", "Not enough active lipsticks matched preferences", {
@@ -409,6 +422,7 @@ async function submitPreferences(event, deps) {
     });
   }
 
+  const sharedContent = await loadSharedContent(runtime, preferences);
   const reportPayload = {
     openid,
     testId: data.testId,
@@ -417,6 +431,7 @@ async function submitPreferences(event, deps) {
     snapshot: {
       preferences,
       recommendations,
+      sharedContent,
       generatedAt: now,
     },
     previewImages: [],
@@ -458,6 +473,66 @@ async function submitPreferences(event, deps) {
     testId: data.testId,
     reportId,
     recommendations,
+  });
+}
+
+async function deleteSelfie(event, deps) {
+  const data = (event && event.data) || {};
+  const runtime = getRuntime(deps);
+  const openid = runtime.wxContext && runtime.wxContext.OPENID;
+
+  if (!openid) {
+    return fail("LOGIN_REQUIRED", "OPENID is missing from WeChat context");
+  }
+
+  if (!data.testId) {
+    return fail("INVALID_PAYLOAD", "testId is required");
+  }
+
+  const testResult = await runtime.db.collection("try_on_tests").doc(data.testId).get();
+  const testRecord = testResult.data || {};
+
+  if (!testRecord._id || testRecord.openid !== openid) {
+    return fail("RESOURCE_NOT_FOUND", "Test does not belong to current user");
+  }
+
+  const now = runtime.now().toISOString();
+  if (testRecord.selfieFileId) {
+    await runtime.deleteFile(testRecord.selfieFileId).catch(() => null);
+  }
+
+  await runtime.db.collection("try_on_tests").doc(data.testId).update({
+    data: {
+      selfieFileId: "",
+      updatedAt: now,
+    },
+  });
+
+  const reportIds = [...new Set([data.reportId, testRecord.activeReportId].filter(Boolean))];
+  await Promise.all(reportIds.map(async (reportId) => {
+    const reportResult = await runtime.db.collection("reports").doc(reportId).get();
+    const report = reportResult.data || {};
+    if (!report._id || report.openid !== openid || report.testId !== data.testId || report.deletedAt) return;
+    await runtime.db.collection("reports").doc(reportId).update({
+      data: {
+        originalDeletedAt: now,
+        updatedAt: now,
+      },
+    });
+  }));
+
+  await runtime.db.collection("events").add({
+    data: {
+      type: "delete_selfie",
+      openid,
+      testId: data.testId,
+      createdAt: now,
+    },
+  });
+
+  return ok({
+    testId: data.testId,
+    selfieDeleted: true,
   });
 }
 
@@ -784,6 +859,10 @@ async function main(event, context, deps) {
     return await generateTryOnImages(event, deps);
   }
 
+  if (action === "deleteSelfie") {
+    return await deleteSelfie(event, deps);
+  }
+
   return unsupported(action);
 }
 
@@ -792,6 +871,7 @@ exports.uploadSelfie = uploadSelfie;
 exports.submitPreferences = submitPreferences;
 exports.regeneratePreview = regeneratePreview;
 exports.generateTryOnImages = generateTryOnImages;
+exports.deleteSelfie = deleteSelfie;
 exports.inspectSelfie = inspectSelfie;
 exports.rankLipsticks = rankLipsticks;
 exports.getProviderConfig = getProviderConfig;

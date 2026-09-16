@@ -1,15 +1,11 @@
-<view class="page">
-  <view class="title">Shared card</view>
-  <view class="copy">Shared pages show one result card and a restart entry.</view>
-  <view class="copy" wx:if="{{loading}}">Loading shared card...</view>
-  <view class="copy" wx:if="{{feedback}}">{{feedback}}</view>
-  <view wx:if="{{recommendation}}" class="report-card">
-    <view class="shade-name">{{recommendation.shadeName}} {{recommendation.shadeCode}}</view>
-    <view class="copy">{{recommendation.brand}} · {{recommendation.colorHex}}</view>
-    <view class="copy">{{recommendation.recommendationReason}}</view>
-    <view class="copy" wx:if="{{recommendation.cautionNote}}">Caution: {{recommendation.cautionNote}}</view>
-    <view class="copy" wx:if="{{recommendation.substitute}}">Substitute: {{recommendation.substitute}}</view>
-  </view>
-  <view class="copy" wx:if="{{shareStats}}">Shared visits: {{shareStats.visitCount}}</view>
-  <button class="primary-button" bindtap="restartTest">Restart test</button>
+<view class="page share-page">
+  <view class="flow-head"><view class="back-icon pressable" aria-label="返回" bindtap="restartTest" hover-class="pressable-hover"><image class="icon-image" src="../../images/ui/back.svg" mode="aspectFit"/></view><view class="eyebrow">NewHz / SHARED CARD</view></view>
+  <view class="title">一张专属试色卡</view>
+  <view class="copy">看看这支唇色在真实照片上的效果。</view>
+  <view wx:if="{{loading}}" class="state-copy">正在加载分享卡...</view>
+  <view wx:if="{{feedback}}" class="feedback">{{feedback}}</view>
+  <view wx:if="{{shareCardImage}}" class="surface share-card"><image class="preview-image" src="{{shareCardImage}}" mode="widthFix"/></view>
+  <view wx:if="{{recommendation}}" class="surface share-info"><view class="micro">LIP MEMORY</view><view class="shade-name">{{recommendation.shadeName}} · {{recommendation.shadeCode}}</view><view class="copy">{{recommendation.brand}} · {{recommendation.colorHex}}</view><view class="copy">{{recommendation.recommendationReason}}</view><view class="detail-tags" wx:if="{{recommendation.sceneText}}"><text>{{recommendation.sceneText}}</text><text wx:if="{{recommendation.outfitText}}">{{recommendation.outfitText}}</text></view></view>
+  <view class="copy share-stats" wx:if="{{shareStats}}">已有 {{shareStats.visitCount}} 人查看</view>
+  <button class="primary-button" bindtap="restartTest">开始我的试色</button>
 </view>

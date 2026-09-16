@@ -407,6 +407,7 @@ test("share createShareEntry stores one-card share metadata for an unlocked repo
       data: {
         reportId: "report-paid",
         recommendationIndex: 0,
+        shareCardTempFilePath: "/tmp/share-card.jpg",
       },
     },
     {},
@@ -414,6 +415,9 @@ test("share createShareEntry stores one-card share metadata for an unlocked repo
       db,
       wxContext: { OPENID: "openid-123" },
       now: () => new Date("2026-06-22T10:00:00.000Z"),
+      uploadFile: async ({ cloudPath }) => ({
+        fileID: `cloud://${cloudPath}`,
+      }),
     }
   );
 
@@ -426,6 +430,10 @@ test("share createShareEntry stores one-card share metadata for an unlocked repo
   assert.strictEqual(entryAdd[2].data.reportId, "report-paid");
   assert.strictEqual(entryAdd[2].data.recommendationIndex, 0);
   assert.strictEqual(entryAdd[2].data.sharerOpenid, "openid-123");
+  assert.strictEqual(
+    entryAdd[2].data.cardPreviewFileId,
+    "cloud://share_cards/openid-123/report-paid/0.jpg"
+  );
   assert.strictEqual(entryAdd[2].data.visitCount, 0);
   assert.strictEqual(entryAdd[2].data.uniqueVisitorCount, 0);
   assert.strictEqual(entryAdd[2].data.paidOrderCount, 0);

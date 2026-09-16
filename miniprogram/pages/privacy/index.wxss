@@ -1,1 +1,2 @@
 @import "../shared.wxss";
+.privacy-page .title, .share-page .title { color: #342620; font-family: Georgia,serif; font-weight: 700; }.privacy-card { border-color: #ead8d0; background: #fffdf9; }.privacy-section .copy { color: #6c5b53; line-height: 1.75; }
