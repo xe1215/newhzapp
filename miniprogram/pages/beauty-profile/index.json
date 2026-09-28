@@ -1,0 +1,6 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "disableScroll": true,
+  "usingComponents": { "credit-pricing": "/components/creditPricing/index" }
+}

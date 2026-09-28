@@ -1,0 +1,100 @@
+<view id="phone-recommend" style="--status-top:{{statusBarHeight}}px" class="phone design-page"><view class="safe-top" style="height:{{statusBarHeight}}px"></view>
+<view class="nav-bar">
+<button bindtap="onAction" data-action="back" data-target="返回" class="back-btn">‹</button>
+<view class="title">为你推荐</view>
+<view class="nav-actions nav-actions-credit">
+<button bindtap="onAction" data-action="openCredits" class="credit-pill"><text class="credit-bolt">ϟ</text><text>{{creditBalance}}</text></button>
+<button bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-39.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-40.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<scroll-view scroll-y="true" class="phone-content">
+<view class="recommend-tags">
+<text>{{recommendationTags[0]}}</text>
+<text>/</text>
+<text>{{recommendationTags[2]}}</text>
+<text>/</text>
+<text>{{recommendationTags[3]}}</text>
+<button bindtap="onAction" data-action="navigateTo" data-target="edit-profile" class="tag-edit">
+<image src="/images/ui/reference-41.svg" mode="aspectFit" style="width:24rpx;height:24rpx" class="ui-icon"></image>
+</button>
+</view>
+<block wx:if="{{recommendations[0]}}">
+<view class="rec-section">
+<view class="rec-num">01</view>
+<view class="rec-section-title">{{recommendations[0].roleLabel}}</view>
+<view class="rec-section-sub">{{recommendations[0].roleSubtitle}}</view>
+</view>
+<view bindtap="onAction" data-action="navigateTo" data-target="tryon" data-product-id="{{recommendations[0].productId}}" class="rec-card">
+<view class="rec-img-wrap">
+<image src="{{recommendations[0].product.imageUrl}}" mode="aspectFit" class="media"></image>
+<view class="rec-img-badge">商品图 · 点击试色</view>
+</view>
+<view class="rec-product-row">
+<image src="{{recommendations[0].product.imageUrl}}" mode="aspectFit" class="rec-product-thumb media"></image>
+<view class="rec-product-info">
+<view class="rec-product-brand">{{recommendations[0].brand}}</view>
+<view class="rec-product-name">{{recommendations[0].name}}</view>
+<view class="rec-product-shade">{{recommendations[0].shade.code}} · {{recommendations[0].shade.name}}</view>
+</view>
+<view class="rec-product-price">¥59</view>
+</view>
+</view>
+<view class="rec-reason">
+<view class="rec-reason-title">为什么推荐？</view>
+<view class="rec-reason-text html-p">{{recommendations[0].reason}}</view>
+</view>
+<button style="margin-bottom:48rpx" bindtap="onAction" data-action="navigateTo" data-target="tryon" data-product-id="{{recommendations[0].productId}}" class="btn-primary brown">试试看</button>
+</block>
+<block wx:if="{{recommendations[1]}}">
+<view class="divider"></view>
+<view style="margin-top:40rpx" class="rec-section">
+<view class="rec-num">02</view>
+<view class="rec-section-title">{{recommendations[1].roleLabel}}</view>
+<view class="rec-section-sub">{{recommendations[1].roleSubtitle}}</view>
+</view>
+<view bindtap="onAction" data-action="navigateTo" data-target="product" data-product-id="{{recommendations[1].productId}}" class="rec-card">
+<view style="height:280rpx" class="rec-img-wrap">
+<image src="{{recommendations[1].product.imageUrl}}" mode="aspectFit" class="media"></image>
+</view>
+<view class="rec-product-row">
+<image src="{{recommendations[1].product.imageUrl}}" mode="aspectFit" class="rec-product-thumb media"></image>
+<view class="rec-product-info">
+<view class="rec-product-brand">{{recommendations[1].brand}}</view>
+<view class="rec-product-name">{{recommendations[1].name}}</view>
+<view class="rec-product-shade">{{recommendations[1].shade.code}} · {{recommendations[1].shade.name}}</view>
+</view>
+<view class="rec-product-price">¥49</view>
+</view>
+</view>
+</block>
+<block wx:if="{{recommendations[2]}}">
+<view class="divider"></view>
+<view style="margin-top:40rpx" class="rec-section">
+<view class="rec-num">03</view>
+<view class="rec-section-title">{{recommendations[2].roleLabel}}</view>
+<view class="rec-section-sub">{{recommendations[2].roleSubtitle}}</view>
+</view>
+<view bindtap="onAction" data-action="navigateTo" data-target="product" data-product-id="{{recommendations[2].productId}}" class="rec-card">
+<view style="height:280rpx" class="rec-img-wrap"><image src="{{recommendations[2].product.imageUrl}}" mode="aspectFit" class="media"></image></view>
+<view class="rec-product-row">
+<image src="{{recommendations[2].product.imageUrl}}" mode="aspectFit" class="rec-product-thumb media"></image>
+<view class="rec-product-info">
+<view class="rec-product-brand">{{recommendations[2].brand}}</view>
+<view class="rec-product-name">{{recommendations[2].name}}</view>
+<view class="rec-product-shade">{{recommendations[2].shade.code}} · {{recommendations[2].shade.name}}</view>
+</view>
+<view class="rec-product-price">¥190</view>
+</view>
+</view>
+<view class="rec-reason"><view class="rec-reason-text html-p">{{recommendations[2].reason}}</view></view>
+</block>
+<button bindtap="onAction" data-action="refreshRecommendations" class="link-btn">换一组推荐</button>
+<view style="height:40rpx"></view>
+</scroll-view>
+<credit-pricing visible="{{showCreditSheet}}" balance="{{creditBalance}}" bind:close="onCreditClose" bind:purchase="onCreditPurchase" />
+</view>

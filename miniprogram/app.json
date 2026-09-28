@@ -1,0 +1,23 @@
+{
+  "pages": [
+    "pages/discover/index",
+    "pages/fit/index",
+    "pages/mine/index",
+    "pages/analyzing/index",
+    "pages/beauty-profile/index",
+    "pages/edit-profile/index",
+    "pages/product-detail/index",
+    "pages/recommend/index",
+    "pages/single-tryon/index"
+  ],
+  "window": {
+    "backgroundColor": "#F2EDE6",
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#FFFEFB",
+    "navigationBarTitleText": "NewPage",
+    "navigationBarTextStyle": "black"
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

@@ -1,0 +1,51 @@
+button::after { border: 0; }
+
+.credit-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+  background: rgba(35, 26, 30, .48);
+  backdrop-filter: blur(8rpx);
+}
+
+.credit-dialog {
+  width: 100%;
+  max-width: 686rpx;
+  max-height: calc(100vh - 128rpx);
+  overflow: hidden;
+  box-sizing: border-box;
+  border-radius: 28rpx;
+  background: #FFFEFB;
+  box-shadow: 0 28rpx 80rpx rgba(49, 34, 38, .24);
+  color: #3A2A25;
+}
+
+.credit-heading { position: relative; padding: 42rpx 40rpx 32rpx; border-bottom: 1rpx solid #EEE5E0; background: linear-gradient(135deg, #FFFEFB 0%, #FBF5F8 100%); }
+.credit-eyebrow { color: #9B818A; font-size: 19rpx; letter-spacing: 3rpx; font-weight: 700; }
+.credit-dismiss { position: absolute; top: 22rpx; right: 22rpx; width: 56rpx; height: 56rpx; padding: 0; border: 0; background: transparent; color: #8B7B75; font-size: 42rpx; line-height: 50rpx; }
+.credit-title { margin-top: 14rpx; font-size: 38rpx; line-height: 1.25; font-weight: 700; letter-spacing: .5rpx; }
+.credit-subtitle { margin-top: 12rpx; color: #8B7B75; font-size: 23rpx; line-height: 1.45; }
+.credit-balance { display: inline-block; margin-top: 24rpx; padding: 12rpx 20rpx; border: 1rpx solid #E5D8EC; border-radius: 24rpx; background: #F6F0F8; color: #75608E; font-size: 23rpx; }
+.credit-balance text { font-weight: 700; }
+.credit-section-label { padding: 30rpx 40rpx 18rpx; color: #5A4740; font-size: 25rpx; font-weight: 700; }
+.credit-plan-list { padding: 0 40rpx; }
+.credit-plan { display: flex; align-items: center; box-sizing: border-box; width: 100%; min-height: 112rpx; margin-bottom: 14rpx; padding: 22rpx 24rpx; border: 2rpx solid #E8DEDA; border-radius: 18rpx; background: #FFFDFC; box-shadow: 0 6rpx 18rpx rgba(91, 65, 58, .04); }
+.credit-plan:last-child { margin-bottom: 0; }
+.credit-plan-selected { border-color: #AC91BA; background: #F8F3FA; box-shadow: 0 8rpx 24rpx rgba(172, 145, 186, .14); }
+.credit-plan-copy { flex: 1; min-width: 0; }
+.credit-plan-count { font-size: 29rpx; line-height: 1.2; font-weight: 700; }
+.credit-plan-count text { font-size: 22rpx; font-weight: 500; }
+.credit-plan-price { width: 130rpx; margin-right: 18rpx; color: #3A2A25; font-size: 32rpx; line-height: 1; font-weight: 700; text-align: right; }
+.credit-plan-unit { margin-top: 8rpx; color: #8B7B75; font-size: 21rpx; white-space: nowrap; }
+.credit-radio { display: flex; align-items: center; justify-content: center; width: 34rpx; height: 34rpx; border: 2rpx solid #D5C8D8; border-radius: 50%; box-sizing: border-box; }
+.credit-radio-selected { border-color: #AC91BA; }
+.credit-radio-dot { width: 18rpx; height: 18rpx; border-radius: 50%; background: #AC91BA; }
+.credit-buy { display: block; box-sizing: border-box; width: calc(100% - 80rpx); height: 86rpx; margin: 28rpx 40rpx 40rpx; padding: 0; border-radius: 43rpx; background: linear-gradient(135deg, #A486B1 0%, #896C98 100%); color: #FFF; font-size: 27rpx; font-weight: 600; line-height: 86rpx; box-shadow: 0 10rpx 24rpx rgba(137, 108, 152, .22); }
+.credit-buy[disabled] { background: #EAE3E9; color: #9B8D99; box-shadow: none; }

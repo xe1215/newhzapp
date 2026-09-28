@@ -1,0 +1,108 @@
+<view id="phone-mine" style="--status-top:{{statusBarHeight}}px" class="phone design-page"><view class="safe-top" style="height:{{statusBarHeight}}px"></view>
+<view class="nav-bar">
+<view class="brand">NewPage</view>
+<view class="nav-actions">
+<button bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-15.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-16.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<scroll-view scroll-y="true" class="phone-content">
+<view class="user-section">
+<view class="user-avatar">
+<image src="/images/ui/reference-17.svg" mode="aspectFit" style="width:56rpx;height:56rpx" class="ui-icon"></image>
+</view>
+<view class="user-info">
+<view class="html-h3">微信用户</view>
+<view class="html-p">已完成 {{tryOnHistory.length}} 次单支试色</view>
+</view>
+</view>
+<view class="stats-row">
+<view bindtap="onAction" data-action="showAllTryOns" class="stat-item">
+<view class="stat-num">{{tryOnHistory.length}}</view>
+<view class="stat-label">我的试色</view>
+</view>
+<view bindtap="onAction" data-action="navigateTo" data-target="profile" class="stat-item">
+<view class="stat-num">{{profileFields.length ? 1 : 0}}</view>
+<view class="stat-label">美妆画像</view>
+</view>
+<view bindtap="onAction" data-action="showAllTryOns" class="stat-item">
+<view class="stat-num">
+<image style="width:40rpx;height:40rpx" src="/images/ui/reference-18.svg" mode="aspectFit" class="ui-icon"></image>
+</view>
+<view class="stat-label">历史记录</view>
+</view>
+</view>
+<view class="section-header">
+<view class="html-h4">最近的试色</view>
+<text bindtap="onAction" data-action="showAllTryOns" class="see-all">{{showAllTryOns ? '收起' : '全部'}} ›</text>
+</view>
+<view wx:if="{{mineError}}" class="html-p">{{mineError}}</view>
+<view wx:if="{{mineFeedback}}" class="html-p">{{mineFeedback}}</view>
+<view wx:if="{{!tryOnHistory.length}}" bindtap="onAction" data-action="switchMainTab" data-target="home" class="report-card">
+<view class="report-bg media"></view>
+<view class="report-overlay">
+<view class="report-tag">MY TRY-ON</view>
+<view>
+<view class="report-title">暂无试色记录</view>
+<view style="margin-top:12rpx" class="report-meta">
+<text>去首页发现喜欢的口红 ›</text>
+</view>
+</view>
+</view>
+</view>
+<view wx:for="{{visibleTryOnHistory}}" wx:key="id" wx:for-item="entry" bindtap="onAction" data-action="openTryOnHistory" data-id="{{entry.id}}" class="report-card">
+<view class="report-bg media"></view>
+<view class="report-overlay">
+<view class="report-tag">MY TRY-ON / {{index + 1}}</view>
+<view>
+<view class="report-title">{{entry.product.brand}} · {{entry.shade.name}}</view>
+<view style="margin-top:12rpx" class="report-meta">
+<text>{{entry.shade.code}}</text>
+<text>单支试色</text>
+<text catchtap="onAction" data-action="deleteTryOn" data-id="{{entry.id}}">删除</text>
+</view>
+</view>
+</view>
+</view>
+<view class="menu-list">
+<view bindtap="onAction" data-action="navigateTo" data-target="profile" class="menu-item">
+<image src="/images/ui/reference-19.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text class="menu-text">我的美妆画像</text>
+<text class="menu-arrow">›</text>
+</view>
+<view bindtap="onAction" data-action="deleteSelfie" class="menu-item">
+<image src="/images/ui/reference-21.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text class="menu-text">{{selfieAvailable ? '删除我的自拍' : '暂无自拍'}}</text>
+<text class="menu-arrow">›</text>
+</view>
+<view bindtap="onAction" data-action="showToast" data-target="账户设置" class="menu-item">
+<image src="/images/ui/reference-20.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text class="menu-text">账户设置</text>
+<text class="menu-arrow">›</text>
+</view>
+<view bindtap="onAction" data-action="showToast" data-target="隐私说明" class="menu-item">
+<image src="/images/ui/reference-21.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text class="menu-text">隐私说明</text>
+<text class="menu-arrow">›</text>
+</view>
+</view>
+</scroll-view>
+<view class="bottom-nav">
+<view bindtap="onAction" data-action="switchMainTab" data-target="home" class="nav-item">
+<image src="/images/ui/reference-22.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>首页</text>
+</view>
+<view bindtap="onAction" data-action="switchMainTab" data-target="fit" class="nav-item">
+<image src="/images/ui/reference-23.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>适合我</text>
+</view>
+<view bindtap="onAction" data-action="switchMainTab" data-target="mine" class="nav-item active">
+<image src="/images/ui/reference-24.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>我的</text>
+</view>
+</view>
+</view>

@@ -1,0 +1,55 @@
+<view id="phone-home" style="--status-top:{{statusBarHeight}}px" class="phone design-page"><view class="safe-top" style="height:{{statusBarHeight}}px"></view>
+<view class="nav-bar">
+<view class="brand">NewPage</view>
+<view class="nav-actions nav-actions-credit">
+<button bindtap="onAction" data-action="openCredits" class="credit-pill"><text class="credit-bolt">ϟ</text><text>{{creditBalance}}</text></button>
+<button bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-1.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-2.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<view class="discover-toolbar">
+<view bindtap="onAction" data-action="showToast" data-target="搜索品牌、口红、色号" class="search-bar search-bar-short">
+<image src="/images/ui/reference-3.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+<text>搜索品牌、口红、色号</text>
+</view>
+<view class="category-tabs">
+<view bindtap="onAction" data-action="switchTab" data-target="全部" class="category-tab {{category === '全部' ? 'active' : ''}}">全部</view>
+<view bindtap="onAction" data-action="switchTab" data-target="橘朵" class="category-tab {{category === '橘朵' ? 'active' : ''}}">橘朵</view>
+<view bindtap="onAction" data-action="switchTab" data-target="魅可" class="category-tab {{category === '魅可' ? 'active' : ''}}">魅可</view>
+<view bindtap="onAction" data-action="switchTab" data-target="YSL" class="category-tab {{category === 'YSL' ? 'active' : ''}}">YSL</view>
+<view bindtap="onAction" data-action="switchTab" data-target="INTO YOU" class="category-tab {{category === 'INTO YOU' ? 'active' : ''}}">INTO YOU</view>
+</view>
+</view>
+<scroll-view scroll-y="true" class="phone-content">
+<view class="product-grid">
+<view wx:for="{{products}}" wx:key="id" bindtap="onAction" data-action="navigateTo" data-target="product" data-product-id="{{item.id}}" class="product-card">
+<image wx:if="{{item.imageUrl || item.image}}" src="{{item.imageUrl || item.image}}" mode="aspectFit" class="product-img media"></image><view wx:else class="product-img media"></view>
+<view class="product-info">
+<view class="brand-name">{{item.brand}}</view>
+<view class="product-name">{{item.name}}</view>
+<view class="color-tag"><text style="background:{{item.shade.color}}" class="color-dot"></text>
+{{item.shade.code}} · {{item.shade.name}}</view>
+</view>
+</view>
+</view>
+</scroll-view>
+<credit-pricing visible="{{showCreditSheet}}" balance="{{creditBalance}}" bind:close="onCreditClose" bind:purchase="onCreditPurchase" />
+<view class="bottom-nav">
+<view bindtap="onAction" data-action="switchMainTab" data-target="home" class="nav-item active">
+<image src="/images/ui/reference-4.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>首页</text>
+</view>
+<view bindtap="onAction" data-action="switchMainTab" data-target="fit" class="nav-item">
+<image src="/images/ui/reference-5.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>适合我</text>
+</view>
+<view bindtap="onAction" data-action="switchMainTab" data-target="mine" class="nav-item">
+<image src="/images/ui/reference-6.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>我的</text>
+</view>
+</view>
+</view>

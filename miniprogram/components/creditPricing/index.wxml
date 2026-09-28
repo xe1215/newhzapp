@@ -1,0 +1,31 @@
+<view wx:if="{{visible}}" class="credit-overlay" bindtap="close">
+  <view class="credit-dialog" catchtap="noop">
+    <view class="credit-heading">
+      <view class="credit-eyebrow">AI TRY-ON</view>
+      <button class="credit-dismiss" bindtap="close" aria-label="关闭积分弹窗">×</button>
+      <view class="credit-title">补充试色积分</view>
+      <view class="credit-subtitle">1 积分可生成 1 次单图试色</view>
+      <view class="credit-balance">当前剩余 <text>{{balance}}</text> 积分</view>
+    </view>
+
+    <view class="credit-section-label">选择积分套餐</view>
+    <view class="credit-plan-list">
+      <view wx:for="{{packages}}" wx:key="credits"
+        class="credit-plan {{selectedCredits === item.credits ? 'credit-plan-selected' : ''}}"
+        data-credits="{{item.credits}}" bindtap="selectPackage">
+        <view class="credit-plan-copy">
+          <view class="credit-plan-count">{{item.credits}}<text> 积分</text></view>
+          <view class="credit-plan-unit">{{item.unitPrice}}</view>
+        </view>
+        <view class="credit-plan-price">{{item.priceLabel}}</view>
+        <view class="credit-radio {{selectedCredits === item.credits ? 'credit-radio-selected' : ''}}">
+          <view wx:if="{{selectedCredits === item.credits}}" class="credit-radio-dot"></view>
+        </view>
+      </view>
+    </view>
+
+    <button class="credit-buy" disabled="{{!selectedCredits}}" bindtap="purchase">
+      {{selectedCredits ? '购买 ' + selectedCredits + ' 积分 · ' + selectedPrice : '请选择积分套餐'}}
+    </button>
+  </view>
+</view>

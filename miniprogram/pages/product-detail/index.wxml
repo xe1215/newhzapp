@@ -1,0 +1,99 @@
+<view id="phone-product" style="--status-top:{{statusBarHeight}}px" class="phone design-page"><view class="safe-top" style="height:{{statusBarHeight}}px"></view>
+<view class="nav-bar">
+<button bindtap="onAction" data-action="back" data-target="返回首页" class="back-btn">‹</button>
+<view class="title">口红详情</view>
+<view class="nav-actions">
+<button bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-36.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-37.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<scroll-view style="padding:0" scroll-y="true" class="phone-content">
+<view class="product-hero">
+<image wx:if="{{product.imageUrl || product.image}}" id="productHeroImg" src="{{product.imageUrl || product.image}}" mode="aspectFit" class="media"></image><view wx:else id="productHeroImg" class="media"></view>
+<view class="product-indicator">01 / 02</view>
+</view>
+<view style="padding:0 40rpx">
+<view class="product-detail-brand">{{product.brand}}</view>
+<view class="product-detail-row">
+<view id="productName" class="product-detail-name html-h2">{{product.name}}</view>
+</view>
+<view id="productShade" class="product-detail-shade">{{shade.code + ' · ' + shade.name}}</view>
+<view class="divider"></view>
+<view class="shade-display">
+<view id="shadeCircle" style="background:{{shade.color}}" class="shade-circle"></view>
+<view>
+<view id="shadeName" class="shade-name">{{shade.full}}</view>
+<view id="shadeDesc" class="shade-desc">{{shade.desc}}</view>
+</view>
+</view>
+<view wx:if="{{product.id === 'mock-jd-p02'}}" class="shade-selector">
+<view class="shade-selector-title">
+<text>选择色号</text>
+<text class="shade-selector-hint">同系列 · 小奶泥唇泥</text>
+</view>
+<view class="shade-options">
+<view bindtap="onAction" data-action="selectProductShade" data-code="P01" class="shade-option {{shade.code === 'P01' ? 'selected' : ''}}">
+<view style="background:#E8A8A0" class="shade-option-color"></view>
+<view class="shade-option-text">
+<view class="shade-option-code">P01</view>
+<view class="shade-option-label">蜜桃泥</view>
+</view>
+</view>
+<view bindtap="onAction" data-action="selectProductShade" data-code="P02" class="shade-option {{shade.code === 'P02' ? 'selected' : ''}}">
+<view style="background:#C4938A" class="shade-option-color"></view>
+<view class="shade-option-text">
+<view class="shade-option-code">P02</view>
+<view class="shade-option-label">豆沙泥</view>
+</view>
+</view>
+<view bindtap="onAction" data-action="selectProductShade" data-code="P03" class="shade-option {{shade.code === 'P03' ? 'selected' : ''}}">
+<view style="background:#D46060" class="shade-option-color"></view>
+<view class="shade-option-text">
+<view class="shade-option-code">P03</view>
+<view class="shade-option-label">草莓泥</view>
+</view>
+</view>
+<view bindtap="onAction" data-action="selectProductShade" data-code="P04" class="shade-option {{shade.code === 'P04' ? 'selected' : ''}}">
+<view style="background:#965450" class="shade-option-color"></view>
+<view class="shade-option-text">
+<view class="shade-option-code">P04</view>
+<view class="shade-option-label">红棕泥</view>
+</view>
+</view>
+</view>
+</view>
+<view wx:if="{{relatedProducts.length}}" class="shade-selector">
+<view class="shade-selector-title">
+<text>选择其他色号</text>
+<text class="shade-selector-hint">同系列</text>
+</view>
+<view class="shade-options">
+<view wx:for="{{relatedProducts}}" wx:key="id" bindtap="onAction" data-action="selectRelatedProduct" data-product-id="{{item.id}}" class="shade-option">
+<view style="background:{{item.shade.color}}" class="shade-option-color"></view>
+<view class="shade-option-text">
+<view class="shade-option-code">{{item.shade.code}}</view>
+<view class="shade-option-label">{{item.shade.name}}</view>
+</view>
+</view>
+</view>
+</view>
+<view class="product-spec-row">
+<text class="spec-label">妆感</text>
+<text class="spec-value">{{product.finish}} · 轻盈</text>
+</view>
+<view class="product-spec-row">
+<text class="spec-label">适合场景</text>
+<text class="spec-value">{{product.scene === '日常通勤' ? '日常 · 通勤' : '日常 · 约会'}}</text>
+</view>
+</view>
+</scroll-view>
+<view style="padding:24rpx 40rpx 48rpx;flex-shrink:0;background:#FFFEFB">
+<button bindtap="onAction" data-action="navigateTo" data-target="tryon" class="btn-primary brown">
+<image src="/images/ui/reference-38.svg" mode="aspectFit" style="width:36rpx;height:36rpx" class="ui-icon"></image>
+AI试色</button>
+</view>
+</view>

@@ -1,0 +1,63 @@
+<view id="phone-edit-profile" style="--status-top:{{statusBarHeight}}px" class="phone design-page"><view class="safe-top" style="height:{{statusBarHeight}}px"></view>
+<view class="nav-bar">
+<button bindtap="onAction" data-action="back" data-target="profile" class="back-btn">‹</button>
+<view class="title">修改我的画像</view>
+<view class="nav-actions">
+<button bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-34.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-35.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<scroll-view style="padding-top:16rpx" scroll-y="true" class="phone-content">
+<view style="font-size:44rpx;font-weight:700;margin-bottom:12rpx" class="html-h2">以你的感受为准</view>
+<view style="font-size:26rpx;color:#8B7B75;margin-bottom:48rpx" class="html-p">调整后，将按你的新画像重新推荐。</view>
+<view class="edit-group">
+<view class="edit-group-title">肤色</view>
+<view class="chip-row">
+<view bindtap="onAction" data-action="selectChip" data-group="0" data-index="0" class="chip {{choices[0][0] ? 'selected' : ''}}">白皙</view>
+<view bindtap="onAction" data-action="selectChip" data-group="0" data-index="1" class="chip {{choices[0][1] ? 'selected' : ''}}">自然</view>
+<view bindtap="onAction" data-action="selectChip" data-group="0" data-index="2" class="chip {{choices[0][2] ? 'selected' : ''}}">小麦</view>
+</view>
+</view>
+<view class="edit-group">
+<view class="edit-group-title-row">
+<text class="edit-group-title">冷暖倾向</text>
+<text class="edit-hint">原分析：偏暖</text>
+</view>
+<view class="chip-row">
+<view bindtap="onAction" data-action="selectChip" data-group="1" data-index="0" class="chip {{choices[1][0] ? 'selected' : ''}}">偏冷</view>
+<view bindtap="onAction" data-action="selectChip" data-group="1" data-index="1" class="chip {{choices[1][1] ? 'selected' : ''}}">中性</view>
+<view bindtap="onAction" data-action="selectChip" data-group="1" data-index="2" class="chip {{choices[1][2] ? 'selected' : ''}}">偏暖</view>
+</view>
+</view>
+<view class="edit-group">
+<view class="edit-group-title-row">
+<text class="edit-group-title">脸型</text>
+<text bindtap="onAction" data-action="selectFaceShape" class="edit-hint-link">{{profileFields[1]}} ›</text>
+</view>
+</view>
+<view class="edit-group">
+<view class="edit-group-title">整体风格</view>
+<view class="chip-row">
+<view bindtap="onAction" data-action="selectChip" data-group="2" data-index="0" class="chip {{choices[2][0] ? 'selected' : ''}}">温柔</view>
+<view bindtap="onAction" data-action="selectChip" data-group="2" data-index="1" class="chip {{choices[2][1] ? 'selected' : ''}}">自然</view>
+<view bindtap="onAction" data-action="selectChip" data-group="2" data-index="2" class="chip {{choices[2][2] ? 'selected' : ''}}">清冷</view>
+<view bindtap="onAction" data-action="selectChip" data-group="2" data-index="3" class="chip {{choices[2][3] ? 'selected' : ''}}">明艳</view>
+</view>
+</view>
+<view class="edit-group">
+<view class="edit-group-title">使用场景</view>
+<view class="chip-row">
+<view bindtap="onAction" data-action="selectChip" data-group="3" data-index="0" class="chip {{choices[3][0] ? 'selected' : ''}}">日常</view>
+<view bindtap="onAction" data-action="selectChip" data-group="3" data-index="1" class="chip {{choices[3][1] ? 'selected' : ''}}">通勤</view>
+<view bindtap="onAction" data-action="selectChip" data-group="3" data-index="2" class="chip {{choices[3][2] ? 'selected' : ''}}">约会</view>
+<view bindtap="onAction" data-action="selectChip" data-group="3" data-index="3" class="chip {{choices[3][3] ? 'selected' : ''}}">聚会</view>
+</view>
+</view>
+<view style="font-size:24rpx;color:#966B5B;margin:32rpx 0 40rpx">已调整冷暖倾向</view>
+<button style="margin-bottom:40rpx" bindtap="onAction" data-action="navigateTo" data-target="recommend" class="btn-primary brown">保存画像，重新推荐</button>
+</scroll-view>
+</view>

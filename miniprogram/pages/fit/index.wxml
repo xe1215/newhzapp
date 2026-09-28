@@ -1,0 +1,54 @@
+<view id="phone-fit" style="--status-top:{{statusBarHeight}}px" class="phone design-page"><view class="safe-top" style="height:{{statusBarHeight}}px"></view>
+<view class="nav-bar">
+<view class="brand">NewPage</view>
+<view class="nav-actions nav-actions-credit">
+<button bindtap="onAction" data-action="openCredits" class="credit-pill"><text class="credit-bolt">ϟ</text><text>{{creditBalance}}</text></button>
+<button bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-7.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-8.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<scroll-view scroll-y="true" class="phone-content">
+<view class="fit-header">
+<view class="html-h2">找到适合你的口红</view>
+<view class="html-p">上传一张自拍，AI 分析你的肤色与风格，为你找到适合自己的口红。</view>
+</view>
+<view class="fit-photo-area">
+<image src="/images/demo-portrait.jpg" mode="aspectFill" class="fit-photo media"></image>
+<view class="fit-photo-badge">示例照片</view>
+<button bindtap="onAction" data-action="takeSelfie" class="fit-camera-btn">
+<image src="/images/ui/reference-9.svg" mode="aspectFit" style="width:44rpx;height:44rpx" class="ui-icon"></image>
+</button>
+</view>
+<view class="fit-actions">
+<button bindtap="onAction" data-action="uploadSelfie" class="btn-primary brown">
+<image src="/images/ui/reference-10.svg" mode="aspectFit" style="width:36rpx;height:36rpx" class="ui-icon"></image>
+上传自拍</button>
+<button bindtap="onAction" data-action="takeSelfie" class="btn-primary outline">
+<image src="/images/ui/reference-11.svg" mode="aspectFit" style="width:36rpx;height:36rpx" class="ui-icon"></image>
+拍照分析</button>
+</view>
+<view class="fit-footer-link">已经完成过分析？
+<view class="html-br"></view>
+<text bindtap="onAction" data-action="navigateTo" data-target="profile">查看我的美妆画像 ›</text>
+</view>
+</scroll-view>
+<credit-pricing visible="{{showCreditSheet}}" balance="{{creditBalance}}" bind:close="onCreditClose" bind:purchase="onCreditPurchase" />
+<view class="bottom-nav">
+<view bindtap="onAction" data-action="switchMainTab" data-target="home" class="nav-item">
+<image src="/images/ui/reference-12.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>首页</text>
+</view>
+<view bindtap="onAction" data-action="switchMainTab" data-target="fit" class="nav-item active">
+<image src="/images/ui/reference-13.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>适合我</text>
+</view>
+<view bindtap="onAction" data-action="switchMainTab" data-target="mine" class="nav-item">
+<image src="/images/ui/reference-14.svg" mode="aspectFit" style="width:40rpx;height:40rpx" class="ui-icon"></image>
+<text>我的</text>
+</view>
+</view>
+</view>

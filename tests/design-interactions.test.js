@@ -1,0 +1,56 @@
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const fs = require('node:fs');
+const path = require('node:path');
+const { createRequire } = require('node:module');
+function mount(name) {
+  const file = path.resolve('miniprogram/pages', name, 'index.js');
+  let definition;
+  vm.runInNewContext(fs.readFileSync(file,'utf8'), {Page:p=>definition=p,require:createRequire(file)});
+  const page = Object.assign({}, definition, {data:JSON.parse(JSON.stringify(definition.data))});
+  page.setData = patch => Object.entries(patch).forEach(([key,value])=>{
+    const parts=key.replace(/\[(\d+)\]/g,'.$1').split('.');let node=page.data;
+    parts.slice(0,-1).forEach(p=>node=node[p]); node[parts[parts.length-1]]=value;
+  });
+  return page;
+}
+function tap(page,data) {page.onAction({currentTarget:{dataset:data}});}
+const calls=[];
+global.wx={showToast:x=>calls.push(x),navigateTo:x=>calls.push(x),reLaunch:x=>calls.push(x),redirectTo:x=>calls.push(x),getWindowInfo:()=>({windowWidth:375,windowHeight:760,screenHeight:760,statusBarHeight:36,safeArea:{bottom:760}})};
+const edit=mount('edit-profile');
+tap(edit,{action:'selectChip',group:2,index:2});
+assert.deepEqual(edit.data.choices[2],[true,true,true,false], 'style permits multiple selections');
+tap(edit,{action:'selectChip',group:1,index:2});
+assert.deepEqual(edit.data.choices[1],[false,false,true], 'temperature remains single choice');
+console.log('ok - profile single/multiple selection matches reference');
+const detail=mount('product-detail');
+tap(detail,{action:'selectProductShade',code:'P04'});
+assert.equal(detail.data.shade.code,'P04');
+assert.equal(detail.data.shade.full,'焦糖红棕泥');
+tap(detail,{action:'navigateTo',target:'tryon'});
+assert.match(calls[calls.length-1].url,/shade=P04/);
+console.log('ok - shade changes label, swatch and selected try-on');
+const tryon=mount('single-tryon');
+tryon.onLoad({productId:'mock-into-em08'});
+assert.equal(tryon.data.product.brand,'INTO YOU');
+assert.equal(tryon.data.shade.code,'EM08');
+tryon._compareRect={left:0,width:375};
+const touch=(x,y)=>({touches:[{clientX:x,clientY:y}]});
+tryon.onCompareStart(touch(100,100));
+assert.ok(tryon.data.slider>26 && tryon.data.slider<27);
+tryon.onSheetTouchStart(touch(100,700));
+tryon.onSheetTouchMove(touch(100,100));
+tryon.onSheetTouchEnd();
+assert.equal(tryon.data.sheetExpanded,true);
+assert.equal(tryon.data.sheetHeight,380);
+const split=tryon.data.slider;
+tryon.onCompareStart(touch(300,100));
+assert.equal(tryon.data.slider,split,'expanded sheet locks comparison');
+tryon.onSheetTouchStart(touch(100,100));
+tryon.onSheetTouchMove(touch(100,700));
+tryon.onSheetTouchEnd();
+assert.equal(tryon.data.sheetHeight,130);
+assert.equal(tryon.data.sheetExpanded,false);
+tryon.onCompareStart(touch(300,100));
+assert.equal(tryon.data.slider,80,'comparison resumes after collapse');
+console.log('ok - selected product, bounded sheet and comparison locking');

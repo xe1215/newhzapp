@@ -1,0 +1,95 @@
+<template name="sheetContents">
+<view class="sheet-gallery has-product-image">
+<image wx:if="{{product.imageUrl || product.image}}" src="{{product.imageUrl || product.image}}" binderror="onProductImageError" mode="aspectFit" class="media"></image>
+<image wx:else src="/images/default-goods-image.png" mode="aspectFit" class="media"></image>
+<view class="gallery-dots">
+<text class="g-dot active"></text>
+<text class="g-dot"></text>
+</view>
+</view>
+<view class="sheet-product-info">
+<view class="sheet-brand">{{product.brand}}</view>
+<view class="sheet-product-name-row">
+<view class="sheet-product-name html-h3">{{product.name}}</view>
+<view style="background:{{shade.color}}" class="sheet-big-color-dot"></view>
+</view>
+<view class="sheet-shade-desc">{{shade.full}} · {{product.finish}}质地</view>
+</view>
+<view class="sheet-shade-card">
+<view style="background:{{shade.color}}" class="shade-card-circle"></view>
+<view class="shade-card-info">
+<view class="shade-card-name">{{shade.full}}</view>
+<view class="shade-card-code">{{shade.code}} · {{shade.name}}</view>
+</view>
+</view>
+</template>
+<view id="phone-tryon" style="--status-top:{{statusBarHeight}}px" class="phone design-page tryon-page">
+<view style="position:absolute;top:{{statusBarHeight}}px;left:0;right:0;z-index:30" class="nav-bar">
+<button style="color:white;background:rgba(0,0,0,0.25)" bindtap="onAction" data-action="back" data-target="返回" class="back-btn">‹</button>
+<view style="color:white" class="title">AI试色</view>
+<view class="nav-actions">
+<button style="background:rgba(255,255,255,0.2);color:white" bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-42.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button style="background:rgba(255,255,255,0.2);color:white" bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-43.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<view wx:if="{{historyUnavailable}}" style="flex:1;display:flex;align-items:center;justify-content:center;padding:48rpx;color:#8B7B75" class="tryon-image-area">试色记录不可访问或已删除</view>
+<view wx:if="{{!historyUnavailable && showGeneratingPage}}" class="tryon-generating-page">
+<view wx:if="{{beforeImageUrl}}" class="tryon-generating-photo-wrap"><image src="{{beforeImageUrl}}" mode="aspectFill" class="tryon-generating-photo"></image><view class="tryon-generating-ring spin"></view></view>
+<view wx:else class="tryon-generating-ring spin"></view>
+<text class="tryon-generating-title">{{status === 'failed' ? '试色生成失败' : '正在生成试色图…'}}</text>
+<text class="tryon-generating-copy">{{status === 'failed' ? (tryOnMessage || '请重试') : '请稍候，生成完成后将显示完整对比图'}}</text>
+<button wx:if="{{status === 'failed'}}" bindtap="retry" class="tryon-generating-retry">重新生成</button>
+</view>
+<view wx:if="{{!historyUnavailable && showComparison}}" id="tryonImageArea" style="flex:1 1 auto" class="tryon-image-area {{sheetExpanded ? 'collapsed' : ''}}">
+<view id="baSlider" catchtouchstart="onCompareStart" catchtouchmove="onCompareMove" bindtouchend="onCompareEnd" bindtouchcancel="onCompareEnd" class="ba-slider">
+<image wx:if="{{resultImageUrl}}" id="baAfterImg" src="{{resultImageUrl}}" binderror="onAfterImageError" mode="aspectFill" class="ba-img ba-after media"></image><view wx:else id="baAfterImg" class="ba-img ba-after media"></view>
+<view id="baBeforeWrap" style="width:{{slider}}%" class="ba-before-wrap">
+<image wx:if="{{beforeImageUrl}}" id="baBeforeImg" src="{{beforeImageUrl}}" binderror="onBeforeImageError" mode="aspectFill" class="ba-img ba-before media"></image><view wx:else id="baBeforeImg" class="ba-img ba-before media"></view>
+</view>
+<view id="baDivider" style="left:{{slider}}%" class="ba-divider">
+<view id="baHandle" class="ba-handle">
+<image src="/images/ui/reference-44.svg" mode="aspectFit" style="width:36rpx;height:36rpx" class="ui-icon"></image>
+</view>
+</view>
+<view class="ba-label ba-label-left">Before</view>
+<view class="ba-label ba-label-right">After</view>
+<view wx:if="{{status !== 'succeeded' || !resultImageUrl}}" class="tryon-status" catchtap="noop">
+<text>{{tryOnMessage || (status === 'failed' ? '试色暂未完成，请重试' : '正在生成试色图…')}}</text>
+<button wx:if="{{status === 'failed'}}" bindtap="retry" class="tryon-retry">{{resultImageUrl ? '重新加载' : '重试'}}</button>
+</view>
+</view>
+<view class="ba-hint">左右拖动，查看 Before / After</view>
+</view>
+<view wx:if="{{!historyUnavailable && showComparison}}" id="bottomSheet" style="height:{{sheetHeight}}px" class="bottom-sheet {{sheetExpanded ? 'expanded' : ''}} {{dragging ? 'dragging' : ''}}">
+<view id="sheetHandle" bindtouchstart="onSheetTouchStart" catchtouchmove="onSheetTouchMove" bindtouchend="onSheetTouchEnd" bindtouchcancel="onSheetCancel" class="sheet-handle">
+<view class="handle-bar"></view>
+</view>
+<view id="sheetCollapsed" bindtouchstart="onSheetTouchStart" catchtouchmove="onSheetTouchMove" bindtouchend="onSheetTouchEnd" bindtouchcancel="onSheetCancel" class="sheet-collapsed">
+<view class="sheet-tag">RECOMMENDATION 01</view>
+<view class="tryon-product-row">
+<view class="tryon-product-thumb has-product-image"><image wx:if="{{product.imageUrl || product.image}}" id="tryonProductThumb" src="{{product.imageUrl || product.image}}" binderror="onProductImageError" mode="aspectFit" class="media"></image><image wx:else id="tryonProductThumb" src="/images/default-goods-image.png" mode="aspectFit" class="media"></image></view>
+<view class="tryon-product-copy">
+<view class="tryon-product-brand">{{product.brand}}</view>
+<view class="sheet-title">{{product.name}}</view>
+<view class="tryon-product-meta">
+<text style="background:{{shade.color}}" class="tryon-color-dot"></text>
+<text>{{shade.code}} · {{shade.name}}</text>
+<text class="tryon-meta-separator">·</text>
+<text>{{product.finish}} · {{product.scene}}</text>
+</view>
+</view>
+</view>
+<view class="tryon-sheet-actions"></view>
+</view>
+<scroll-view scroll-y="true" style="height:calc(100% - 36rpx)" class="sheet-scroll">
+<view id="sheetExpanded" class="sheet-expanded">
+<template is="sheetContents" data="{{product,shade}}" />
+</view>
+</scroll-view>
+<view id="sheetMeasure" class="sheet-measure"><view class="sheet-expanded"><template is="sheetContents" data="{{product,shade}}" /></view></view>
+</view>
+</view>

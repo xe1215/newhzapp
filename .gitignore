@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+miniprogram_npm/
+
+# Build and packaging output
+dist/
+build/
+release/
+.tmp/
+tmp/
+temp/
+coverage/
+
+# WeChat DevTools local/private files
+project.private.config.json
+*.private.config.json
+.weapp/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+.gh-config/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+.npm-cache/
+.codegraph/
+skills-lock.json
+.config/
+AppData/
+tmp-deploy/
+
+# Local Codex and design artifacts
+.codex/*
+!.codex/config.toml
+!.codex/agents/
+!.codex/agents/*.toml
+frontend-effect-mockups/
+output/
+mini-program-page-plan.md
+
+# Developer Console local process helpers and environment template
+admin/.env.example
+admin/admin_guard_loop.ps1
+admin/ensure_admin_guard.ps1
+admin/ensure_admin_service.ps1
+admin/serve_dist.py

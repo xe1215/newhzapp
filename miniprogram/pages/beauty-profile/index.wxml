@@ -1,0 +1,72 @@
+<view id="phone-profile" style="--status-top:{{statusBarHeight}}px" class="phone design-page"><view class="safe-top" style="height:{{statusBarHeight}}px"></view>
+<view class="nav-bar">
+<button bindtap="onAction" data-action="back" data-target="返回" class="back-btn">‹</button>
+<view class="title">我的美妆画像</view>
+<view class="nav-actions nav-actions-credit">
+<button bindtap="onAction" data-action="openCredits" class="credit-pill"><text class="credit-bolt">ϟ</text><text>{{creditBalance}}</text></button>
+<button bindtap="onAction" data-action="showToast" data-target="更多功能" class="icon-btn">
+<image src="/images/ui/reference-31.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+<button bindtap="onAction" data-action="showToast" data-target="个人中心" class="icon-btn">
+<image src="/images/ui/reference-32.svg" mode="aspectFit" style="width:32rpx;height:32rpx" class="ui-icon"></image>
+</button>
+</view>
+</view>
+<scroll-view style="padding-top:16rpx" scroll-y="true" class="phone-content">
+<view style="font-size:44rpx;font-weight:700;margin-bottom:12rpx" class="html-h2">先认识你，再选唇色</view>
+<view style="font-size:26rpx;color:#8B7B75;margin-bottom:40rpx" class="html-p">这份画像，你说了算。</view>
+<view class="profile-card">
+<view class="profile-card-header">
+<text class="profile-card-tag">MY BEAUTY PROFILE</text>
+<view class="profile-avatar-img media"></view>
+</view>
+<view class="profile-card-title">{{profileFields[2]}}</view>
+<view class="profile-grid">
+<view class="profile-field">
+<text class="field-label">肤色</text>
+<text class="field-value">{{profileFields[0]}}</text>
+</view>
+<view class="profile-field">
+<text class="field-label">脸型</text>
+<text class="field-value">{{profileFields[1]}}</text>
+</view>
+<view class="profile-field">
+<text class="field-label">整体风格</text>
+<text class="field-value">{{profileFields[2]}}</text>
+</view>
+<view class="profile-field">
+<text class="field-label">使用场景</text>
+<text class="field-value">{{profileFields[3]}}</text>
+</view>
+</view>
+</view>
+<view style="font-size:32rpx;font-weight:700;margin:48rpx 0 28rpx" class="html-h3">适合你的色系</view>
+<view class="color-swatches">
+<view bindtap="onAction" data-action="showToast" data-target="查看豆沙色系口红" class="swatch-item">
+<view style="background:#C4938A" class="swatch"></view>
+<text>豆沙</text>
+</view>
+<view bindtap="onAction" data-action="showToast" data-target="查看奶茶色系口红" class="swatch-item">
+<view style="background:#C49A7E" class="swatch"></view>
+<text>奶茶</text>
+</view>
+<view bindtap="onAction" data-action="showToast" data-target="查看暖玫瑰色系口红" class="swatch-item">
+<view style="background:#C47B7B" class="swatch"></view>
+<text>暖玫瑰</text>
+</view>
+<view bindtap="onAction" data-action="showToast" data-target="查看柔和红棕色系口红" class="swatch-item">
+<view style="background:#965450" class="swatch"></view>
+<text>柔和红棕</text>
+</view>
+</view>
+<view style="font-size:32rpx;font-weight:700;margin:48rpx 0 20rpx" class="html-h3">AI 分析</view>
+<view style="font-size:26rpx;color:#8B7B75;line-height:1.7;margin-bottom:40rpx" class="html-p">你的肤色偏暖，整体视觉比较柔和，更适合低饱和、自然的颜色。日常可优先考虑豆沙、奶茶和暖玫瑰。</view>
+<view style="text-align:center;margin-bottom:32rpx">
+<button bindtap="onAction" data-action="navigateTo" data-target="edit-profile" class="link-btn">
+<image src="/images/ui/reference-33.svg" mode="aspectFit" style="width:28rpx;height:28rpx" class="ui-icon"></image>
+修改我的画像</button>
+</view>
+<button style="margin-bottom:40rpx" bindtap="onAction" data-action="navigateTo" data-target="recommend" class="btn-primary brown">确认画像，查看推荐</button>
+</scroll-view>
+<credit-pricing visible="{{showCreditSheet}}" balance="{{creditBalance}}" bind:close="onCreditClose" bind:purchase="onCreditPurchase" />
+</view>
